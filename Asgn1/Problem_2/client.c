@@ -39,13 +39,13 @@ int main()
         }
         printf("\nEnter the expression (Enter -1 to terminate and newline to end the expression): ");
 
-        int max = 512;
+        long long max = 1024;
         char *buf_data = (char *)malloc(sizeof(char) * max);
         if (buf_data == 0)
             perror("Memory exhausted");
 
         char ch;
-        int c = 0;
+        long long c = 0;
         // loop to read characters untill newline is entered
         do
         {
@@ -77,16 +77,16 @@ int main()
         printf("\nExpression sent to the server.\n");
 
         int x = 0;
-        float result;
+        double result;
         // get result from the server and display it
         if ((x = recv(connection_socket, &result, sizeof(result), 0)) < 0)
         {
             perror("\nError in receiving\n");
         }
-        if (result == INFINITY)
+        if (result == (double)INFINITY)
             printf("\nResult received from server: INFINITY\n");
         else
-            printf("\nResult received from server: %f\n", result);
+            printf("\nResult received from server: %lf\n", result);
 
         close(connection_socket);
     }

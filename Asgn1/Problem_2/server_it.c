@@ -14,7 +14,7 @@
 #include <arpa/inet.h>
 
 // function to evaluate result from operands
-void evaluate(float *sum, float temp_sum, char op)
+void evaluate(double *sum, double temp_sum, char op)
 {
     switch (op)
     {
@@ -31,16 +31,16 @@ void evaluate(float *sum, float temp_sum, char op)
         if (temp_sum != 0.000000)
             *sum /= temp_sum;
         else
-            *sum = (float)INFINITY;
+            *sum = (double)INFINITY;
         break;
     }
 }
-float calc(char *buf_data, int start, int end, int *oldi)
+double calc(char *buf_data, long long start, long long end, long long *oldi)
 {
-    float sum = 0, temp_sum = 0;
+    double sum = 0, temp_sum = 0;
     char op = '?';
     // printf("\ngoing to calc with start = %d, end = %d\n", start, end);
-    for (int i = start; i < end; i++)
+    for (long long int i = start; i < end; i++)
     {
         if (buf_data[i] == '(')
         {
@@ -59,9 +59,9 @@ float calc(char *buf_data, int start, int end, int *oldi)
         else if (i > start && (buf_data[i] == '+' || buf_data[i] == '-' || buf_data[i] == '*' || buf_data[i] == '/'))
         {
             if (*oldi == start)
-                temp_sum = strtof(buf_data + *oldi, NULL);
+                temp_sum = strtod(buf_data + *oldi, NULL);
             else
-                temp_sum = strtof(buf_data + *oldi + 1, NULL);
+                temp_sum = strtod(buf_data + *oldi + 1, NULL);
             if (op == '?')
             {
                 sum = temp_sum;
@@ -83,7 +83,7 @@ float calc(char *buf_data, int start, int end, int *oldi)
     // if there was no operator in the expression, then return the single operand
     if (op == '?')
     {
-        sum = strtof(buf_data + start, NULL);
+        sum = strtod(buf_data + start, NULL);
         return sum;
     }
     // when exp ends with operand calculuate the temp_sum for the last operand
@@ -91,7 +91,7 @@ float calc(char *buf_data, int start, int end, int *oldi)
         return sum;
     }
     
-    temp_sum = strtof(buf_data + *oldi + 1, NULL);
+    temp_sum = strtod(buf_data + *oldi + 1, NULL);
     evaluate(&sum, temp_sum, op);
     return sum;
 }
@@ -143,7 +143,7 @@ int main()
         if (buf_data == 0)
             perror("Memory exhausted");
         buf_data[0] = '\0';
-        int received, total = 0;
+        long long received, total = 0;
 
         while (1)
         {
@@ -159,10 +159,10 @@ int main()
             if (total < received + strlen(buf_data))
             {
                 int len = strlen(buf_data);
-                buf_data = (char *)realloc(buf_data, received + len);
+                total = received + len;
+                buf_data = (char *)realloc(buf_data, total);
                 if (buf_data == 0)
                     perror("Memory exhausted");
-                total = received + len;
             }
 
             strcat(buf_data, buffer);
@@ -178,8 +178,8 @@ int main()
         if(buf_data[0] != '\0'){
         printf("\nExpression = %s\n", buf_data);
 
-        float sum = 0;
-        int oldi = 0;
+        double sum = 0;
+        long long oldi = 0;
 
         // call the function to evaluate the arithmatic expression
         if(buf_data[0]=='(')
@@ -187,7 +187,7 @@ int main()
         else sum = calc(buf_data, 0, strlen(buf_data), &oldi);
         // send the result to the client
         send(new_socket, &sum, sizeof(sum), 0);
-        printf("\nExpression evaluated. Result = %f\n", sum);
+        printf("\nExpression evaluated. Result = %lf\n", sum);
         }
         free(buf_data);
         close(new_socket);

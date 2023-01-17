@@ -33,6 +33,7 @@ int main()
     error_check = bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
     if (error_check < 0) {
         perror("Error in binding"); 
+        exit(0);
     }
 
     // listen for client sockets where 5 is the max no of allowed socket
@@ -41,7 +42,7 @@ int main()
         perror("Error in listening\n");
     
     // buffer to store the date and time
-    char buf_date_time[100];
+    char buf_date_time[50];
     time_t curr_time;
 
     int new_socket;
@@ -58,7 +59,7 @@ int main()
         // ctime used to get string representing local time for the curr_time
         snprintf(buf_date_time, sizeof(buf_date_time), "\a%s\n", ctime(&curr_time));
 
-        send(new_socket, buf_date_time, strlen(buf_date_time)+1, 0);
+        send(new_socket, buf_date_time+5, strlen(buf_date_time)+1, 0);
 
         // we close the connection with the client
         close(new_socket);
