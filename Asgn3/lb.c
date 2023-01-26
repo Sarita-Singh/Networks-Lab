@@ -1,5 +1,5 @@
 /*
-    Assignment Number: 2
+    Assignment Number: 3
     Name: Sarita Singh
     Roll No.: 20CS10053
 */
@@ -225,7 +225,7 @@ int main(char argc, char *argv[])
                     memset(&buf, '\0', sizeof(buf));
                     strcpy(buf, "Send Time");
                     send_chunks(server1_socket, buf);
-                    printf("\nSending client request to %d:%d", server1_address.sin_addr.s_addr, server1_address.sin_port);
+                    printf("\nSending client request to %d:%d\n", server1_address.sin_addr.s_addr, server1_address.sin_port);
 
                     if ((x = receive_chunks(server1_socket, buf_date_time, sizeof(buf_date_time))) < 0)
                     {
@@ -251,7 +251,7 @@ int main(char argc, char *argv[])
                     memset(&buf, '\0', sizeof(buf));
                     strcpy(buf, "Send Time");
                     send_chunks(server2_socket, buf);
-                    printf("\nSending client request to %d:%d", server2_address.sin_addr.s_addr, server2_address.sin_port);
+                    printf("\nSending client request to %d:%d\n", server2_address.sin_addr.s_addr, server2_address.sin_port);
 
                     if ((x = receive_chunks(server2_socket, buf_date_time, sizeof(buf_date_time))) < 0)
                     {
