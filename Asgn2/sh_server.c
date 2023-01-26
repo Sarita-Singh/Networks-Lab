@@ -17,9 +17,10 @@
 #define PORT 20000
 #define COMMAND_SIZE 5000
 
+//function to check if username is present in file
 int check_usrname(char *username)
 {
-    FILE *fp = fopen("user_name.txt", "r");
+    FILE *fp = fopen("users.txt", "r");
     if (fp == NULL)
     {
         printf("\nFile not opened!\n");
@@ -40,14 +41,13 @@ int check_usrname(char *username)
     return 0;
 }
 
-int receive(int sockfd, char *buf, int size, char delim)
+int receivefromclient(int sockfd, char *result, int size)
 {
-    char temp[50];
-    int total = 0;
-    while (1)
-    {
-        memset(temp, '\0', sizeof(temp));
-        int n = recv(sockfd, temp, 50, 0);
+    int n, total=0;
+    while(1){
+        char temp[52];
+        memset(&temp, '\0', 52);
+        n = recv(sockfd,temp,50,0);
         if (n < 0)
         {
             perror("Unable to read from socket");
@@ -55,66 +55,108 @@ int receive(int sockfd, char *buf, int size, char delim)
         }
         if (n == 0)
         {
-            break;
+            perror("Connection closed by client");
+            exit(1);
         }
-        strcat(buf, temp);
-        total += n;
-        if (temp[n - 1] == delim)
-        {
-            break;
+        total+=n;
+        long long l = strlen(temp);
+        if(l + n > size){
+            size = l + n  + 1;
+            result  = (char *)realloc(result,size);
         }
+        strcat(result,temp);
+        if(temp[n - 1] == '\0')
+            break;
     }
-    
     return total;
+
 }
 
-// Function to handle the 'dir' command
-int _dir(char *sh_cmd, char *result)
+// helper function for getting results of pwd command
+int pwd_cmd(char *sh_cmd, char *result)
 {
-    char *temp_buf = (char *)malloc(1024 * sizeof(char));
-    long long cmd_len = strlen(sh_cmd);
-    char currrent_dir[1024];
-    long long idx = 3, temp_len = 0;
-    while (idx < cmd_len && sh_cmd[idx] == ' ')
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL)
+        return 0;
+    strcpy(result, cwd);
+    printf("Current working dir: %s\n", result);
+
+    return 1;
+}
+
+// helper function for cd command
+int cd_cmd(char *sh_cmd, long long cmd_len)
+{
+    char changedir[1024] = "\0";
+    long long idx = 2;
+    while (sh_cmd[idx] == ' ')
+    {   
+        if(idx >= cmd_len)
+        break;
+        idx++;
+    }
+    if (idx >= cmd_len)
+    {   
+        // get path of HOME
+        char *temp = getenv("HOME");
+        strcpy(changedir, temp);
+    }
+    else
     {
+        strcat(changedir, sh_cmd + idx);
+        if (sh_cmd[cmd_len - 1] != '/')
+            strcat(changedir, "/");
+    }
+    if (chdir(changedir) < 0)
+    {
+        return 0;
+    }
+    return 1;
+}
+
+// helper function for getting results of dir command
+int dir_cmd(char *sh_cmd, char *result, long long cmd_len)
+{
+    char currrent_dir[2096];
+    long long idx = 3, temp_len = 0;
+    while (sh_cmd[idx] == ' ')
+    {
+        if(idx >= cmd_len)
+        break;
         idx++;
     }
 
-    if (idx < cmd_len)
+    if (idx >= cmd_len)
+    {
+        getcwd(currrent_dir, sizeof(currrent_dir));
+    }
+    else
     {
         strcat(currrent_dir, sh_cmd + idx);
         if (sh_cmd[cmd_len - 1] != '/')
             strcat(currrent_dir, "/");
     }
-    else
-    {
-        getcwd(currrent_dir, sizeof(currrent_dir));
-    }
     DIR *dir = opendir(currrent_dir);
-    if (dir)
+    if (dir != NULL)
     {
         struct dirent *entry_dir;
-        char *temp_buf = (char *)malloc(1024 * sizeof(char));
 
         while ((entry_dir = readdir(dir)) != NULL)
         {
             long long len = strlen(entry_dir->d_name);
-            long long lres = strlen(temp_buf);
-            if (len + lres + 1 >= temp_len)
+            long long result_len = strlen(result);
+            if (len + result_len + 1 >= temp_len)
             {
-                temp_len = len + lres + 2;
-                temp_buf = (char *)realloc(temp_buf, temp_len);
+                temp_len = len + result_len + 2;
+                result = (char *)realloc(result, temp_len);
             }
-            strcat(temp_buf, entry_dir->d_name);
-            strcat(temp_buf, "\n");
+            strcat(result, entry_dir->d_name);
+            strcat(result, "\n");
         }
-        long long lres = strlen(result);
-        if (lres > 0)
+        if (strlen(result) > 0)
         {
-            temp_buf[lres - 1] = '\0';
+            result[strlen(result) - 1] = '\0';
         }
-        strcpy(result, temp_buf);
-        free(temp_buf);
     }
     else
     {
@@ -126,43 +168,24 @@ int _dir(char *sh_cmd, char *result)
     return 1;
 }
 
-int _cd(char *sh_cmd)
-{
-    long long cmd_len = strlen(sh_cmd);
-    char changedir[1024] = "\0";
-    long long idx = 2;
-    while (idx < cmd_len && sh_cmd[idx] == ' ')
+void sendtoclient(int new_socket, char *result)
+{   
+    char buffersend[52];
+    int res_len = strlen(result);
+    result[res_len] = '\0';
+    int count=0;
+    res_len++;
+    for (int i = 0; i < res_len; i += 50)
     {
-        idx++;
+        count = 0;
+        memset(&buffersend, '\0', 52);
+        for (int j = 0; j < 50 && i + j < res_len; j++)
+        {
+            count++;
+            buffersend[j] = result[i + j];
+        }
+        send(new_socket, buffersend, count, 0);
     }
-    if (idx < cmd_len)
-    {
-        strcat(changedir, sh_cmd + idx);
-        if (sh_cmd[cmd_len - 1] != '/')
-            strcat(changedir, "/");
-    }
-    else
-    {
-        char *temp = getenv("HOME");
-        strcpy(changedir, temp);
-    }
-    if (chdir(changedir) < 0)
-    {
-        return 0;
-    }
-    return 1;
-}
-
-int _pwd(char *sh_cmd, char *result)
-{
-    char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) == NULL)
-        return 0;
-    strcpy(result, cwd);
-    result[strlen(result)] = '\0';
-    printf("Current working dir: %s\n", result);
-
-    return 1;
 }
 
 int main()
@@ -192,8 +215,10 @@ int main()
     // executing the accept system call
     error_check = listen(server_socket, 5);
     if (error_check == -1)
-    {    perror("\nError in listening\n");
-        exit(0);}
+    {
+        perror("\nError in listening\n");
+        exit(0);
+    }
 
     char buf[50]; // buffer used for communication
     char username[50];
@@ -217,10 +242,8 @@ int main()
         {
             close(server_socket);
 
-            int cnt = 0;
-
             strcpy(buf, "LOGIN:");
-            buf[strlen(buf)]='\0';
+            buf[strlen(buf)] = '\0';
             // sending the string "LOGIN:"
             int n = send(new_socket, buf, strlen(buf) + 1, 0);
             if (n == 0)
@@ -229,9 +252,10 @@ int main()
                 break;
             }
             memset(&username, '\0', 50);
-            receive(new_socket, username, 50, '\0');
+            receivefromclient(new_socket, username, 50);
 
-            printf("Username = %s\n", username);
+            printf("\nUsername = %s\n", username);
+            // function call for username validation
             int valid = check_usrname(username);
             if (valid == 1)
             {
@@ -251,80 +275,70 @@ int main()
             }
             while (1)
             {
-                char sh_cmd[COMMAND_SIZE];
-                memset(&sh_cmd, '\0', COMMAND_SIZE);
+                char *sh_cmd = (char *)malloc(sizeof(char)*COMMAND_SIZE);
+                if (sh_cmd == 0)
+                {
+                    perror("Memory exhausted");
+                    exit(0);
+                }
+                memset(sh_cmd, '\0', sizeof(sh_cmd));
+                long long szres = COMMAND_SIZE;
+                // receive the shell command in chunks
+                receivefromclient(new_socket, sh_cmd, COMMAND_SIZE);
 
-                // receive the shell command
-                receive(new_socket, sh_cmd, COMMAND_SIZE, '\0');
-
-                printf("%s", sh_cmd);
+                // printf("%s", sh_cmd);
+                // terminate if command is exit
                 if (strcmp(sh_cmd, "exit") == 0)
                 {
                     close(new_socket);
                     exit(0);
                 }
                 // execute the shell command
-                char result[COMMAND_SIZE];
-                memset(&result, '\0', COMMAND_SIZE);
-                
+                char *result = (char *)malloc(sizeof(char) * COMMAND_SIZE);
+                if (result == 0)
+                {
+                    perror("Memory exhausted");
+                    exit(0);
+                }
+                memset(result, '\0', sizeof(result));
                 char cmdrun_err[5], invalid_cmd[5];
                 strcpy(cmdrun_err, "####");
-                // cmdrun_err[4] = '\0';
                 strcpy(invalid_cmd, "$$$$");
-                // invalid_cmd[4] = '\0';
-
+                int flag=0;
+                long long cmd_len = strlen(sh_cmd);
                 if (strcmp(sh_cmd, "pwd") == 0)
                 {
-                    int ret = _pwd(sh_cmd, result);
+                    int ret = pwd_cmd(sh_cmd, result);
                     if (ret == 0)
-                    {   
-                        strcpy(result, cmdrun_err);
-                        // send(new_socket, cmdrun_err, strlen(cmdrun_err) + 1, 0);
-                        // continue;
+                    {
+                        send(new_socket, cmdrun_err, sizeof(cmdrun_err), 0);flag=1;
                     }
                 }
-                else if (strcmp(sh_cmd, "dir") == 0)
+                else if (sh_cmd[0] == 'd' && sh_cmd[1] == 'i' && sh_cmd[2]=='r' && (sh_cmd[3]=='\0' || sh_cmd[3]==' '))
                 {
-                    int ret = _dir(sh_cmd, result);
+                    int ret = dir_cmd(sh_cmd, result, cmd_len);
                     if (ret == 0)
                     {   
-                        strcpy(result, cmdrun_err);
-                        // send(new_socket, cmdrun_err, strlen(cmdrun_err) + 1, 0);
-                        // continue;
+                        send(new_socket, cmdrun_err, sizeof(cmdrun_err), 0);flag=1;
                     }
                 }
-                else if (sh_cmd[0] == 'c' && sh_cmd[1] == 'd')
+                else if (sh_cmd[0] == 'c' && sh_cmd[1] == 'd' && (sh_cmd[2] == '\0' || sh_cmd[2]== ' '))
+                {   
+                    int ret = cd_cmd(sh_cmd, cmd_len);
+                    if (ret == 0)
+                    {
+                        send(new_socket, cmdrun_err, sizeof(cmdrun_err), 0);flag=1;
+                    }
+                }
+                else
                 {
-                    int ret = _cd(sh_cmd);
-                    if (ret == 0)
-                    {   
-                        strcpy(result, cmdrun_err);
-                        // send(new_socket, cmdrun_err, sizeof(cmdrun_err), 0);
-                        // continue;
-                    }
+                    send(new_socket, invalid_cmd, sizeof(invalid_cmd), 0);flag=1;
                 }
-                else {
-                    send(new_socket, invalid_cmd, sizeof(invalid_cmd), 0);
-                    continue;
+                if(flag==0){
+                sendtoclient(new_socket, result);
                 }
-
-                char res_buf[50];
-                int l = strlen(result);
-				result[l] = '\0';
-				int szbuf = 50;
-                l++;
-				printf("\n%s\n",result);
-				for (int i = 0; i < l; i += szbuf)
-				{
-					memset(&res_buf, '\0', 50);
-					int cnt = 0;
-					for (int j = 0; j < szbuf && i + j < l; j++)
-					{
-						cnt++;
-						res_buf[j] = result[i + j];
-					}
-					send(new_socket, res_buf, cnt, 0);
-				}
+                free(result);
+                free(sh_cmd);
             }
 
             close(new_socket);

@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -39,29 +38,30 @@ int main()
 
     // buffer to store date and time
     char buf_date_time[40];
-
+    memset(&buf_date_time, '\0', 40);
     printf("\nHello User!\n");
-    char cli_msg[20];
-    strcpy(cli_msg, "CLIENT: HELLO");
-    cli_msg[strlen(cli_msg)]='\0';
-
+    char cli_msg[15];
+    strcpy(cli_msg,"CLIENT: HELLO");
+    cli_msg[14]='\0';
+    
+    int trial_count = 1;
+    
+    // first sendto from client
     sendto(connection_socket, (const char *)cli_msg, strlen(cli_msg), 0, (const struct sockaddr *)&server_address, sizeof(server_address));
     // printf("Hello message sent from client\n");
-
-    struct pollfd fdset[2];
-    fdset[0].fd = connection_socket;
-    fdset[0].events = POLLIN;
-    socklen_t l = sizeof(server_address);
-
-    int trial_count = 1;
-    int wait_time = 3000;
+    
+    socklen_t len = sizeof(server_address);
+    // poll for waiting untill timeout
+    struct pollfd fds[2];
+    fds[0].fd = connection_socket;
+    fds[0].events = POLLIN;
+    
     while (trial_count <= 5)
-    {
+    {   
         // if poll() returns > 0 then receive the server time in buf_date_time
-        if (poll(fdset, 2, wait_time) > 0)
-        {
-            int n;
-            n = recvfrom(connection_socket, buf_date_time, 40, 0, (struct sockaddr *)&server_address, &l);
+        if (poll(fds, 2, 3000) > 0)
+        {   
+            int n = recvfrom(connection_socket, buf_date_time, 40, 0, (struct sockaddr *)&server_address, &len);
             if (n < 0)
             {
                 perror("\nError in reading from socket\n");
@@ -70,9 +70,10 @@ int main()
             // printf("\n%d",n);
             buf_date_time[n] = '\0';
             printf("\nServer time: %s\n", buf_date_time);
-            close(connection_socket);
+            // close(connection_socket);
             return 0;
         }
+        
         trial_count++;
     }
     printf("\nTimeout exceeded\n");

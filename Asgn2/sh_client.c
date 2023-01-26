@@ -16,14 +16,14 @@
 #define PORT 20000
 #define COMMAND_SIZE 5000
 
-int receive(int sockfd, char *buf, int size, char delim)
-{
-    char temp[50];
-    int total = 0;
-    while (1)
-    {
-        memset(&temp, '\0', sizeof(temp));
-        int n = recv(sockfd, temp, 50, 0);
+// function to receive from server in chunks
+int receivefromserver(int sockfd, char *result, int size)
+{   
+    int n, total=0;
+    while(1){
+        char temp[52];
+        memset(&temp, '\0', 52);
+        n = recv(sockfd,temp,50,0);
         if (n < 0)
         {
             perror("Unable to read from socket");
@@ -31,14 +31,18 @@ int receive(int sockfd, char *buf, int size, char delim)
         }
         if (n == 0)
         {
-            break;
+            perror("Connection closed by client");
+            exit(1);
         }
-        strcat(buf, temp);
-        total += n;
-        if (temp[n - 1] == delim)
-        {
-            break;
+        total+=n;
+        long long l = strlen(temp);
+        if(l + n > size){
+            size = l + n  + 1;
+            result  = (char *)realloc(result,size);
         }
+        strcat(result,temp);
+        if(temp[n - 1] == '\0')
+            break;
     }
     return total;
 }
@@ -70,7 +74,7 @@ int main()
     char ch, buf[50];
     memset(&buf, '\0', sizeof(buf));
 
-    if ((x = receive(connection_socket, buf, sizeof(buf), '\0')) < 0)
+    if ((x = receivefromserver(connection_socket, buf, 50)) < 0)
     {
         perror("\nError in receiving\n");
     }
@@ -85,12 +89,12 @@ int main()
     {
         perror("\nError in sending\n");
     }
-    printf("\nUsername sent to the server.\n");
+    // printf("\nUsername sent to the server.\n");
 
     memset(&buf, '\0', sizeof(buf));
 
     // receive validation of username
-    if ((x = receive(connection_socket, buf, sizeof(buf), '\0')) < 0)
+    if ((x = receivefromserver(connection_socket, buf, sizeof(buf))) < 0)
     {
         perror("\nError in receiving\n");
     }
@@ -108,7 +112,7 @@ int main()
 
         printf("\nEnter a shell command: ");
         long long c = 0;
-        // loop to read characters untill newline is entered
+        // loop to read command untill newline is entered
         do
         {
             ch = getchar();
@@ -118,7 +122,7 @@ int main()
         c = c - 1;
         sh_cmd[c] = '\0';
 
-        // printf("%s %d", sh_cmd, strlen(sh_cmd));
+        // printf("%s %d\n", sh_cmd, c);
 
         // terminate if user enters the special command "exit"
         if (strcmp(sh_cmd, "exit") == 0)
@@ -127,24 +131,22 @@ int main()
             exit(0);
         }
 
-        int bufsize = 50;
-        char cmd_buf[50];
-		int len = strlen(sh_cmd) + 1;
-		//send the command to the user in chunks
-		for(int i = 0; i < len; i += bufsize){
-			for(int j = 0; j < bufsize ; j++)
-				cmd_buf[j] = '\0';
-			int cnt = 0;
-			for(int j = 0; j < bufsize && i + j < len; j++){
+		int len = strlen(sh_cmd) + 1, cnt;
+        // printf("strlen=%d", strlen(sh_cmd));
+		for(int i = 0; i < len; i += 50){
+			memset(&buf, '\0', 50);
+			cnt = 0;
+			for(int j = 0; j < 50 && i + j < len; j++){
 				cnt++;
-				cmd_buf[j] = sh_cmd[i+j];
+				buf[j] = sh_cmd[i+j];
 			}
-			send(connection_socket,cmd_buf,cnt,0);
+			send(connection_socket,buf,cnt,0);
 		}
         // get the result after command is executed
-        char result[COMMAND_SIZE];
-        memset(&result, '\0', COMMAND_SIZE);
-        if ((x = receive(connection_socket, result, COMMAND_SIZE, '\0')) < 0)
+        char *result = (char *)malloc(sizeof(char)*COMMAND_SIZE);
+		strcpy(result,"\0");
+		long long size = 2000;
+        if ((x = receivefromserver(connection_socket, result, size)) < 0)
         {
             perror("\nError in receiving\n");
             exit(0);
@@ -158,9 +160,10 @@ int main()
             printf("\nError in running command\n");
         }
         else
-        {   if(result[0]!='\0')
-            printf("\nCommand output: %s\n", result);
+        {   
+            printf("\nCommand output: \n%s\n", result);
         }
+        free(result);
     }
     close(connection_socket);
     return 0;
