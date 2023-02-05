@@ -92,7 +92,7 @@ int main(char argc, char *argv[])
 
     lb_address.sin_family = AF_INET;
     lb_address.sin_port = htons(LB_PORT);
-    lb_address.sin_addr.s_addr = INADDR_ANY;
+    lb_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     server1_address.sin_family = AF_INET;
     server1_address.sin_port = htons(S1_PORT);
@@ -123,7 +123,7 @@ int main(char argc, char *argv[])
 
     int x, client_socket;
     int s1_prev_load = 0, s2_prev_load = 0;
-    struct pollfd fds[2];
+    struct pollfd fds[1];
     fds[0].fd = lb_socket;
     fds[0].events = POLLIN;
     int time_used = 0;
@@ -133,7 +133,7 @@ int main(char argc, char *argv[])
         // record the start time here
         time(&start_time);
         // printf("\nStarting poll with %d milli sec\n", 5000 - time_used);
-        int ret = poll(fds, 2, 5000 - time_used);
+        int ret = poll(fds, 1, 5000 - time_used);
 
         if (ret == 0)
         {

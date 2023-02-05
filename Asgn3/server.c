@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 {
     int server_socket;
     int clilen, error_check;
-    if(argc < 2){
+    if(argc <= 1){
         perror("\nServer Port is required\n");
         exit(0);
     }
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in server_address, client_address;
 
     server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_address.sin_port = htons(SERVER_PORT);
 
     // bind the socket to our specified IP & port information in server_address

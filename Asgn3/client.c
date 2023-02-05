@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 {
     int connection_socket;
     struct sockaddr_in server_address;
-    if (argc < 2)
+    if (argc <= 1)
     {
         perror("\nLoad balancer port is required\n");
         exit(0);
