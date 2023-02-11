@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 typedef struct _url_data {
     int port;
@@ -101,6 +106,9 @@ URLData parseURL(char* URL) {
 
 int main()
 {
+    int connection_socket;
+    struct sockaddr_in server_address; 
+
     char ch;
     char *inp_cmd = (char *)malloc(200 * sizeof(char));
     int status = 0, args = 0;
@@ -130,9 +138,32 @@ int main()
         else if (strcmp(cmd[0], "GET") == 0)
         {
             URLData urldata = parseURL(cmd[1]);
-            printf("ip: %s\n", urldata.ip);
-            printf("port: %d\n", urldata.port);
-            printf("route: %s\n", urldata.route);
+            
+            // creating a socket
+            if((connection_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            {
+                perror("Error in creating socket\n");
+                exit(0);
+            }
+
+            server_address.sin_family = AF_INET;
+            server_address.sin_port = htons(urldata.port); 
+            inet_aton(urldata.ip, &server_address.sin_addr);
+
+            // creating connection with server at specified address
+            if( connect(connection_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
+            {
+                perror("\n Error in connecting to server \n");
+                exit(0);
+            }
+
+            char buf_data[100] = "hello";
+            if (send(connection_socket, buf_data, strlen(buf_data) + 1, 0) < 0)
+            {
+                perror("\nError in sending\n");
+            }
+
+            close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
         {
