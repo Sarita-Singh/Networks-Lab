@@ -2,10 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-const char *code_200 = "200";
-const char *code_400 = "400";
-const char *code_403 = "403";
-const char *code_404 = "404";
+typedef struct _url_data {
+    int port;
+    char* ip;
+    char* route;
+} URLData;
 
 // Function to parse the command and break it into appropriate tokens
 char **parseCommand(char *command, int cnt)
@@ -32,6 +33,72 @@ char **parseCommand(char *command, int cnt)
     return cmd;
 }
 
+// Function to parse the url and extract ip address, port and route from it
+URLData parseURL(char* URL) {
+    URLData data;
+    data.ip = (char *)malloc(16*sizeof(char)); // 255.255.255.255 will take 16 bytes
+    data.route = (char *)malloc(strlen(URL)*sizeof(char)); // length cannot be more than total URL length
+    char* scheme = (char *)malloc(8*sizeof(char)); // "http://" will take 8 bytes
+    
+    strncpy(scheme, URL, 7);
+    scheme[7] == '\0';
+    if(strcmp(scheme, "http://") != 0) {
+        printf("only http websites are supported\n");
+        return data;
+    }
+
+    int startIndex = 7, endIndex = 7;
+    while(URL[endIndex] != ':' && URL[endIndex] != '/' && URL[endIndex] != '\0') endIndex++;
+    strncpy(data.ip, URL + startIndex, endIndex - startIndex);
+
+    // no port or route provided
+    if(URL[endIndex] == '\0') {
+        data.port = 80;
+        return data;
+    }
+
+    // port first
+    if(URL[endIndex] == ':') {
+        startIndex = ++endIndex;
+
+        while(URL[endIndex] != '/' && URL[endIndex] != '\0') endIndex++;
+        char* portString = (char *)malloc(8*sizeof(char));
+        strncpy(portString, URL + startIndex, endIndex - startIndex);
+        data.port = atoi(portString);
+
+        // no route provided
+        if(URL[endIndex] == '\0') return data;
+
+        startIndex = endIndex;
+        while(URL[endIndex] != '\0') endIndex++;
+        strncpy(data.route, URL + startIndex, endIndex - startIndex);
+        return data;
+    }
+
+    // route first
+    else if(URL[endIndex] == '/') {
+        startIndex = endIndex;
+
+        while(URL[endIndex] != ':' && URL[endIndex] != '\0') endIndex++;
+        strncpy(data.route, URL + startIndex, endIndex - startIndex);
+
+        // no port provided
+        if(URL[endIndex] == '\0') {
+            data.port = 80;
+            return data;
+        }
+
+        startIndex = ++endIndex;
+        while(URL[endIndex] != '\0') endIndex++;
+        char* portString = (char *)malloc(8*sizeof(char));
+        strncpy(portString, URL + startIndex, endIndex - startIndex);
+        data.port = atoi(portString);
+        return data;
+    }
+
+    return data;
+}
+
 int main()
 {
     char ch;
@@ -51,7 +118,9 @@ int main()
         } while (ch != '\n');
         c = c - 1;
         inp_cmd[c] = '\0';
-        char **cmd = parseCommand(inp_cmd, &args);
+
+        char **cmd = parseCommand(inp_cmd, args);
+
         if (!cmd[0])
         {
             continue;
@@ -60,8 +129,10 @@ int main()
             break;
         else if (strcmp(cmd[0], "GET") == 0)
         {
-            // do nothin;
-            printf("\nip %s", cmd[1]);
+            URLData urldata = parseURL(cmd[1]);
+            printf("ip: %s\n", urldata.ip);
+            printf("port: %d\n", urldata.port);
+            printf("route: %s\n", urldata.route);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
         {
