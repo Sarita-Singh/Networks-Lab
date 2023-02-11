@@ -134,7 +134,7 @@ int main()
     
     // open the file AccessLog.txt
     FILE *filePointer ; 
-    filePointer = fopen("AccessLog.txt", "w");
+    
     while (1)
     {
         clilen = sizeof(client_address);
@@ -145,42 +145,41 @@ int main()
             perror("\nError in accept\n");
             exit(0);
         }
-
-        // buffer to store the date and time
-        char buf_date_time[50];
-        time_t curr_time;
-        
+        filePointer = fopen("AccessLog.txt", "aw");
+        char *clientIP = inet_ntoa(client_address.sin_addr);
+        int clientPORT = ntohs(client_address.sin_port);
+        // printf("%s:%d\n", clientIP, clientPORT);
         printf("\nClient connected\n");
         char *result;
         int cnt=0;
-        char *headerLine;
+        char headerLine[INITIAL_SIZE];
 
         // first receive in a while loop till empty line
         while(1){
+            // keep receiving each line of header
+            result = receive_chunks(newsockfd);
             if(strcmp(result, "\r\n") == 0){
                 // header over
                 break;
             }
-            // keep receiving each line of header
-            result = receive_chunks(newsockfd);
-            strcpy(headerLine, result);
+            // strcpy(headerLine, result);
             // parse the headerline to get data
             if(!cnt){
                 // get time, client ip, port
-                curr_time = time(NULL);
-                // ctime used to get string representing local time for the curr_time
-                snprintf(buf_date_time, sizeof(buf_date_time), "\a%s\n", ctime(&curr_time));
-
-                fprintf(filePointer, "%s", "We", buf_date_time);
+                time_t t;
+                t = time(NULL);
+                struct tm tm = *localtime(&t);
+                fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d\n", tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT);                
                 cnt=1;
             }
+            printf("\n%s", result);
 
         }
         // then receive the body if command was 'PUT'
-        printf("\n%s", result);
+        fclose(filePointer);
 
-        
         close(newsockfd);
     }
+    
     return 0;
 }
