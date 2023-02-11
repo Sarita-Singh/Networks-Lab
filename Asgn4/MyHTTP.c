@@ -162,7 +162,8 @@ int main()
                 // header over
                 break;
             }
-            // strcpy(headerLine, result);
+            memset(&headerLine, '\0', sizeof(headerLine));
+            strcpy(headerLine, result);
             // parse the headerline to get data
             if(!cnt){
                 // get time, client ip, port
@@ -172,7 +173,7 @@ int main()
                 fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d\n", tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT);                
                 cnt=1;
             }
-            printf("\n%s", result);
+            printf("\n%s", headerLine);
 
         }
         // then receive the body if command was 'PUT'
