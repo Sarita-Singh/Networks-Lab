@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <time.h>
 
-#define INITIAL_SIZE 512
+#define INITIAL_SIZE 1024
 #define PORT 80
 
 enum StatusCodes{
@@ -79,7 +79,10 @@ URLData parseURL(char* URL) {
     data.ip = (char *)malloc(16*sizeof(char)); // 255.255.255.255 will take 16 bytes
     data.route = (char *)malloc(strlen(URL)*sizeof(char)); // length cannot be more than total URL length
     char* scheme = (char *)malloc(8*sizeof(char)); // "http://" will take 8 bytes
-    
+    memset(data.ip,'\0',16);
+    memset(data.route,'\0',sizeof(data.route));
+    memset(scheme,'\0',8);
+
     strncpy(scheme, URL, 7);
     scheme[7] == '\0';
     if(strcmp(scheme, "http://") != 0) {
@@ -90,7 +93,7 @@ URLData parseURL(char* URL) {
     int startIndex = 7, endIndex = 7;
     while(URL[endIndex] != ':' && URL[endIndex] != '/' && URL[endIndex] != '\0') endIndex++;
     strncpy(data.ip, URL + startIndex, endIndex - startIndex);
-
+    data.ip[endIndex - startIndex] = '\0';
     // no port or route provided
     if(URL[endIndex] == '\0') {
         data.port = PORT;
@@ -103,15 +106,19 @@ URLData parseURL(char* URL) {
 
         while(URL[endIndex] != '/' && URL[endIndex] != '\0') endIndex++;
         char* portString = (char *)malloc(8*sizeof(char));
+        memset(portString, '\0', 8);
         strncpy(portString, URL + startIndex, endIndex - startIndex);
+        portString[endIndex - startIndex] = '\0';
         data.port = atoi(portString);
 
         // no route provided
         if(URL[endIndex] == '\0') return data;
 
-        startIndex = endIndex;
+        startIndex = ++endIndex;
         while(URL[endIndex] != '\0') endIndex++;
         strncpy(data.route, URL + startIndex, endIndex - startIndex);
+        data.route[endIndex - startIndex] = '\0';
+        // printf("\nData = %d %s %s\n", data.port, data.ip, data.route);
         return data;
     }
 
@@ -121,7 +128,7 @@ URLData parseURL(char* URL) {
 
         while(URL[endIndex] != ':' && URL[endIndex] != '\0') endIndex++;
         strncpy(data.route, URL + startIndex, endIndex - startIndex);
-
+        data.route[endIndex - startIndex] = '\0';
         // no port provided
         if(URL[endIndex] == '\0') {
             data.port = PORT;
@@ -131,11 +138,12 @@ URLData parseURL(char* URL) {
         startIndex = ++endIndex;
         while(URL[endIndex] != '\0') endIndex++;
         char* portString = (char *)malloc(8*sizeof(char));
+        memset(portString, '\0', 8);
         strncpy(portString, URL + startIndex, endIndex - startIndex);
+        portString[endIndex - startIndex] = '\0';
         data.port = atoi(portString);
         return data;
     }
-
     return data;
 }
 
@@ -245,39 +253,53 @@ int main()
             strftime(reqHeader.If_Modified_Since, sizeof(reqHeader.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
 
             char buf_data[100];
+            int size = INITIAL_SIZE;
+            int totalSize = 0;
+            char *requestBuf = (char *)malloc(size * sizeof(char));
+            for(int i = 0; i < size; i++) requestBuf[i] = '\0';
 
             sprintf(buf_data, "GET %s HTTP/1.1\r\n", urldata.route);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "Host: %s\r\n", reqHeader.Host);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "Connection: %s\r\n", reqHeader.Connection);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "Date: %s\r\n", reqHeader.Date);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "Accept: %s\r\n", reqHeader.Accept);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "Accept-Language: %s\r\n", reqHeader.Accept_Language);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "If-Modified-Since: %s\r\n", reqHeader.If_Modified_Since);
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
 
             sprintf(buf_data, "\r\n");
             // printf("%s\n", buf_data);
-            send_chunks(connection_socket, buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+            requestBuf[totalSize] = '\0';
 
+            send_chunks(connection_socket, requestBuf);
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)

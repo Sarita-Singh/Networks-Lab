@@ -49,7 +49,8 @@ char *receive_chunks(int sockfd)
     int n, total = 0;
     int size = INITIAL_SIZE;
     char *result = (char *)malloc(size * sizeof(char));
-    for(int i = 0; i < size; i++) result[i] = '\0';
+    for (int i = 0; i < size; i++)
+        result[i] = '\0';
     while (1)
     {
         char temp[52];
@@ -217,10 +218,10 @@ int main()
     memset(&username, '\0', sizeof(username));
 
     int i, newsockfd;
-    
+
     // open the file AccessLog.txt
-    FILE *filePointer ; 
-    
+    FILE *filePointer;
+
     while (1)
     {
         clilen = sizeof(client_address);
@@ -237,38 +238,30 @@ int main()
         // printf("%s:%d\n", clientIP, clientPORT);
         printf("\nClient connected\n");
         char *result;
-        int cnt=0;
+        int cnt = 0;
         char headerLine[INITIAL_SIZE];
 
         RequestHeaders reqHeaders;
 
         // first receive in a while loop till empty line
-        while(1){
-            // keep receiving each line of header
-            result = receive_chunks(newsockfd);
-            if(strcmp(result, "\r\n") == 0){
-                // header over
-                break;
-            }
-            memset(&headerLine, '\0', sizeof(headerLine));
-            strcpy(headerLine, result);
-            // parse the headerline to get data
-            if(!cnt){
-                // get time, client ip, port
-                time_t t;
-                t = time(NULL);
-                struct tm tm = *localtime(&t);
-                fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d\n", tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT);                
-                cnt=1;
-            }
-            printf("\n%s", headerLine);
+        // keep receiving each line of header
+        result = receive_chunks(newsockfd);
 
-        }
+        // parse the headerline to get data
+        // get time, client ip, port
+        time_t t;
+        t = time(NULL);
+        struct tm tm = *localtime(&t);
+        fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT);
+        memset(&headerLine, '\0', sizeof(headerLine));
+        strcpy(headerLine, result);
+        printf("\n%s", headerLine);
+
         // then receive the body if command was 'PUT'
         fclose(filePointer);
 
         close(newsockfd);
     }
-    
+
     return 0;
 }
