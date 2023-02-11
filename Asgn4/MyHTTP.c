@@ -163,14 +163,14 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
 
     if(requestType == GET) {
-        if(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since))
+        if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since)))
             header->isValid = 0;
         else
             header->isValid = 1;
     }
 
     if(requestType == PUT) {
-        if(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Length) && strlen(header->Content_Type))
+        if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Length) && strlen(header->Content_Type)))
             header->isValid = 0;
         else
             header->isValid = 1;
