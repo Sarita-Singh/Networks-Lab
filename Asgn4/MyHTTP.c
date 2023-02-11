@@ -9,6 +9,52 @@
 #include <time.h>
 
 #define INITIAL_SIZE 512
+#define PORT 80
+
+enum StatusCodes{
+OK=200,
+BAD_REQUEST=400,
+FORBIDDEN=403,
+NOT_FOUND=404
+};
+
+typedef struct _get_request_headers {
+    char* Host;
+    char* Connection;
+    char* Date;
+    char* Accept;
+    char* Accept_Language;
+    char* If_Modified_Since;
+}GetRequestHeaders;
+
+typedef struct _put_request_headers {
+    char* Host;
+    char* Connection;
+    char* Date;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+}PutRequestHeaders;
+
+typedef struct _get_response_headers {
+    enum StatusCodes statusCode;
+    char* Expires;
+    char* Cache_Control;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+    char* Last_Modified;
+}GetResponseHeaders;
+
+typedef struct _put_response_headers {
+    enum StatusCodes statusCode;
+    char* Expires;
+    char* Cache_Control;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+    char* Last_Modified;
+}PutResponseHeaders;
 
 char *receive_chunks(int sockfd)
 {
@@ -44,7 +90,7 @@ char *receive_chunks(int sockfd)
     return result;
 }
 
-#define PORT 80
+
 int main()
 {
     int server_socket;

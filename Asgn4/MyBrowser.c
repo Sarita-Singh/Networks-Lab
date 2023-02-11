@@ -7,6 +7,54 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#define INITIAL_SIZE 512
+#define PORT 80
+
+enum StatusCodes{
+OK=200,
+BAD_REQUEST=400,
+FORBIDDEN=403,
+NOT_FOUND=404
+};
+
+typedef struct _get_request_headers {
+    char* Host;
+    char* Connection;
+    char* Date;
+    char* Accept;
+    char* Accept_Language;
+    char* If_Modified_Since;
+}GetRequestHeaders;
+
+typedef struct _put_request_headers {
+    char* Host;
+    char* Connection;
+    char* Date;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+}PutRequestHeaders;
+
+typedef struct _get_response_headers {
+    enum StatusCodes statusCode;
+    char* Expires;
+    char* Cache_Control;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+    char* Last_Modified;
+}GetResponseHeaders;
+
+typedef struct _put_response_headers {
+    enum StatusCodes statusCode;
+    char* Expires;
+    char* Cache_Control;
+    char* Content_Language;
+    unsigned int Content_Length;
+    char* Content_Type;
+    char* Last_Modified;
+}PutResponseHeaders;
+
 typedef struct _url_data {
     int port;
     char* ip;
@@ -58,7 +106,7 @@ URLData parseURL(char* URL) {
 
     // no port or route provided
     if(URL[endIndex] == '\0') {
-        data.port = 80;
+        data.port = PORT;
         return data;
     }
 
@@ -89,7 +137,7 @@ URLData parseURL(char* URL) {
 
         // no port provided
         if(URL[endIndex] == '\0') {
-            data.port = 80;
+            data.port = PORT;
             return data;
         }
 
