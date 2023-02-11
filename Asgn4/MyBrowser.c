@@ -155,12 +155,13 @@ URLData parseURL(char* URL) {
 
 char* getMimeType(char* route) {
     char* mimeType = (char *)malloc(20*sizeof(char));
-    int endIndex = strlen(route) + 1;
+    int endIndex = strlen(route);
     int startIndex = endIndex;
 
-    while(route[startIndex] != '.') startIndex--;
+    while(route[startIndex] != '.' && startIndex > 0) startIndex--;
+    if(startIndex == 0) return "text/*";
     startIndex++;
-    strncpy(mimeType, route + startIndex, endIndex - startIndex);
+    strncpy(mimeType, route + startIndex, endIndex - startIndex + 1);
     mimeType[endIndex - startIndex] = '\0';
 
     if(strcmp(mimeType, "html") == 0) return "text/html";
@@ -239,27 +240,35 @@ int main()
             char buf_data[100];
 
             sprintf(buf_data, "GET %s HTTP/1.1\r\n", urldata.route);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "Host: %s\r\n", header.Host);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "Connection: %s\r\n", header.Connection);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "Date: %s\r\n", header.Date);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "Accept: %s\r\n", header.Accept);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "Accept-Language: %s\r\n", header.Accept_Language);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "If-Modified-Since: %s\r\n", header.If_Modified_Since);
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             sprintf(buf_data, "\r\n");
+            printf("%s\n", buf_data);
             send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             close(connection_socket);
