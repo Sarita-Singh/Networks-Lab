@@ -12,31 +12,27 @@
 #define PORT 80
 
 enum StatusCodes{
-OK=200,
-BAD_REQUEST=400,
-FORBIDDEN=403,
-NOT_FOUND=404
+    OK=200,
+    BAD_REQUEST=400,
+    FORBIDDEN=403,
+    NOT_FOUND=404
 };
 
-typedef struct _get_request_headers {
-    char Host[50];
-    char Connection[15];
-    char Date[30];
-    char Accept[20];
-    char Accept_Language[20];
-    char If_Modified_Since[30];
-}GetRequestHeaders;
+typedef struct _request_headers {
+    char url[512]; //both
+    char Host[50]; //both
+    char Connection[15]; //both
+    char Date[30]; //both
+    char Accept[20]; //get
+    char Accept_Language[20]; //get
+    char If_Modified_Since[30]; //get
+    char Content_Language[20]; //put
+    unsigned int Content_Length; //put
+    char Content_Type[20]; //put
+    int isValid; //both
+} RequestHeaders;
 
-typedef struct _put_request_headers {
-    char Host[50];
-    char Connection[15];
-    char Date[30];
-    char Content_Language[20];
-    unsigned int Content_Length;
-    char Content_Type[20];
-}PutRequestHeaders;
-
-typedef struct _get_response_headers {
+typedef struct _response_headers {
     enum StatusCodes statusCode;
     char Expires[25];
     char Cache_Control[15];
@@ -44,17 +40,7 @@ typedef struct _get_response_headers {
     unsigned int Content_Length;
     char Content_Type[20];
     char Last_Modified[30];
-}GetResponseHeaders;
-
-typedef struct _put_response_headers {
-    enum StatusCodes statusCode;
-    char Expires[25];
-    char Cache_Control[15];
-    char Content_Language[20];
-    unsigned int Content_Length;
-    char Content_Type[20];
-    char Last_Modified[30];
-}PutResponseHeaders;
+} ResponseHeaders;
 
 typedef struct _url_data {
     int port;
@@ -243,19 +229,20 @@ int main()
                 exit(0);
             }
 
-            GetRequestHeaders header;
-            strcpy(header.Host, urldata.ip);
-            strcpy(header.Connection, "close");
-            strcpy(header.Accept_Language, "en-us");
-            strcpy(header.Accept, getMimeType(urldata.route));
+            RequestHeaders reqHeader;
+            strcpy(reqHeader.url, urldata.route);
+            strcpy(reqHeader.Host, urldata.ip);
+            strcpy(reqHeader.Connection, "close");
+            strcpy(reqHeader.Accept_Language, "en-us");
+            strcpy(reqHeader.Accept, getMimeType(urldata.route));
 
             time_t now = time(0);
             struct tm tm = *gmtime(&now);
-            strftime(header.Date, sizeof(header.Date), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+            strftime(reqHeader.Date, sizeof(reqHeader.Date), "%a, %d %b %Y %H:%M:%S %Z", &tm);
 
             time_t modifyTime = now - 2*86400;
             struct tm tmModify = *gmtime(&modifyTime);
-            strftime(header.If_Modified_Since, sizeof(header.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
+            strftime(reqHeader.If_Modified_Since, sizeof(reqHeader.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
 
             char buf_data[100];
 
@@ -263,27 +250,27 @@ int main()
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "Host: %s\r\n", header.Host);
+            sprintf(buf_data, "Host: %s\r\n", reqHeader.Host);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "Connection: %s\r\n", header.Connection);
+            sprintf(buf_data, "Connection: %s\r\n", reqHeader.Connection);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "Date: %s\r\n", header.Date);
+            sprintf(buf_data, "Date: %s\r\n", reqHeader.Date);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "Accept: %s\r\n", header.Accept);
+            sprintf(buf_data, "Accept: %s\r\n", reqHeader.Accept);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "Accept-Language: %s\r\n", header.Accept_Language);
+            sprintf(buf_data, "Accept-Language: %s\r\n", reqHeader.Accept_Language);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 
-            sprintf(buf_data, "If-Modified-Since: %s\r\n", header.If_Modified_Since);
+            sprintf(buf_data, "If-Modified-Since: %s\r\n", reqHeader.If_Modified_Since);
             // printf("%s\n", buf_data);
             send_chunks(connection_socket, buf_data);
 

@@ -11,32 +11,30 @@
 #define INITIAL_SIZE 512
 #define PORT 80
 
+enum RequestTypes{GET, PUT};
+
 enum StatusCodes{
-OK=200,
-BAD_REQUEST=400,
-FORBIDDEN=403,
-NOT_FOUND=404
+    OK=200,
+    BAD_REQUEST=400,
+    FORBIDDEN=403,
+    NOT_FOUND=404
 };
 
-typedef struct _get_request_headers {
-    char Host[50];
-    char Connection[15];
-    char Date[30];
-    char Accept[20];
-    char Accept_Language[20];
-    char If_Modified_Since[30];
-}GetRequestHeaders;
+typedef struct _request_headers {
+    char url[512]; //both
+    char Host[50]; //both
+    char Connection[15]; //both
+    char Date[30]; //both
+    char Accept[20]; //get
+    char Accept_Language[20]; //get
+    char If_Modified_Since[30]; //get
+    char Content_Language[20]; //put
+    unsigned int Content_Length; //put
+    char Content_Type[20]; //put
+    int isValid; //both
+} RequestHeaders;
 
-typedef struct _put_request_headers {
-    char Host[50];
-    char Connection[15];
-    char Date[30];
-    char Content_Language[20];
-    unsigned int Content_Length;
-    char Content_Type[20];
-}PutRequestHeaders;
-
-typedef struct _get_response_headers {
+typedef struct _response_headers {
     enum StatusCodes statusCode;
     char Expires[25];
     char Cache_Control[15];
@@ -44,17 +42,7 @@ typedef struct _get_response_headers {
     unsigned int Content_Length;
     char Content_Type[20];
     char Last_Modified[30];
-}GetResponseHeaders;
-
-typedef struct _put_response_headers {
-    enum StatusCodes statusCode;
-    char Expires[25];
-    char Cache_Control[15];
-    char Content_Language[20];
-    unsigned int Content_Length;
-    char Content_Type[20];
-    char Last_Modified[30];
-}PutResponseHeaders;
+} ResponseHeaders;
 
 char *receive_chunks(int sockfd)
 {
@@ -90,6 +78,102 @@ char *receive_chunks(int sockfd)
     }
     result[total] = '\0';
     return result;
+}
+
+void parseRequestHeaders(char *buffer, RequestHeaders* header) {
+    int startIndex = 0, currIndex = 0;
+    enum RequestTypes requestType;
+
+    // request type
+    while(buffer[currIndex] != ' ') currIndex++;
+    char requestTypeBuf[5];
+    strncat(requestTypeBuf, buffer + startIndex, currIndex - startIndex);
+    if(strcmp(requestTypeBuf, "GET") == 0) requestType = GET;
+    else if(strcmp(requestTypeBuf, "PUT") == 0) requestType = PUT;
+    else {
+        header->isValid = 0;
+        return; //bad request
+    }
+
+    // url
+    startIndex = currIndex + 1;
+    while(buffer[currIndex] != ' ') currIndex++;
+    strncat(header->url, buffer + startIndex, currIndex - startIndex);
+
+    //http version
+    startIndex = currIndex + 1;
+    char httpVersionBuf[5];
+    while(buffer[currIndex] != '\r') currIndex++;
+    strncat(httpVersionBuf, buffer + startIndex, currIndex - startIndex);
+    if(strcmp(httpVersionBuf, "HTTP/1.1") != 0) {
+        header->isValid = 0;
+        return; //bad request
+    }
+
+    // start of request headers
+    // skip \n
+    startIndex = currIndex + 2;
+
+    int colonIndex;
+    while(buffer[currIndex] != '\0') {
+        if(buffer[currIndex] == ':') colonIndex = currIndex;
+        if(buffer[currIndex] == '\r') {
+            if(strncmp(buffer + startIndex, "Host", colonIndex - startIndex) == 0) {
+                strncpy(header->Host, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Host[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Connection", colonIndex - startIndex) == 0) {
+                strncpy(header->Connection, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Connection[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Date", colonIndex - startIndex) == 0) {
+                strncpy(header->Date, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Date[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Accept", colonIndex - startIndex) == 0) {
+                strncpy(header->Accept, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Accept[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Accept-Language", colonIndex - startIndex) == 0) {
+                strncpy(header->Accept_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Accept_Language[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "If-Modified-Since", colonIndex - startIndex) == 0) {
+                strncpy(header->If_Modified_Since, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->If_Modified_Since[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0) {
+                strncpy(header->Content_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Content_Language[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0) {
+                strncpy(header->Content_Type, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Content_Type[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0) {
+                char lengthBuf[20];
+                strncpy(lengthBuf, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                lengthBuf[currIndex - colonIndex - 1] = '\0';
+                header->Content_Length = atoi(lengthBuf);
+            }
+            currIndex++;
+        }
+        currIndex++;
+    }
+
+    if(requestType == GET) {
+        if(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since))
+            header->isValid = 0;
+        else
+            header->isValid = 1;
+    }
+
+    if(requestType == PUT) {
+        if(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Length) && strlen(header->Content_Type))
+            header->isValid = 0;
+        else
+            header->isValid = 1;
+    }
 }
 
 
@@ -155,6 +239,8 @@ int main()
         char *result;
         int cnt=0;
         char headerLine[INITIAL_SIZE];
+
+        RequestHeaders reqHeaders;
 
         // first receive in a while loop till empty line
         while(1){
