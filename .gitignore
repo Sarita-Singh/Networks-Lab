@@ -1,0 +1,7 @@
+*.pdf
+browser
+http
+AccessLog.txt
+.vscode
+client
+server
