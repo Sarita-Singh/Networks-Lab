@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 
 #define INITIAL_SIZE 512
 #define PORT 80
@@ -21,7 +22,7 @@ typedef struct _get_request_headers {
     char Host[50];
     char Connection[15];
     char Date[30];
-    char Accept[100];
+    char Accept[20];
     char Accept_Language[20];
     char If_Modified_Since[30];
 }GetRequestHeaders;
@@ -32,7 +33,7 @@ typedef struct _put_request_headers {
     char Date[30];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
 }PutRequestHeaders;
 
 typedef struct _get_response_headers {
@@ -41,7 +42,7 @@ typedef struct _get_response_headers {
     char Cache_Control[15];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
     char Last_Modified[30];
 }GetResponseHeaders;
 
@@ -51,7 +52,7 @@ typedef struct _put_response_headers {
     char Cache_Control[15];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
     char Last_Modified[30];
 }PutResponseHeaders;
 
@@ -152,6 +153,22 @@ URLData parseURL(char* URL) {
     return data;
 }
 
+char* getMimeType(char* route) {
+    char* mimeType = (char *)malloc(20*sizeof(char));
+    int endIndex = strlen(route) + 1;
+    int startIndex = endIndex;
+
+    while(route[startIndex] != '.') startIndex--;
+    startIndex++;
+    strncpy(mimeType, route + startIndex, endIndex - startIndex);
+    mimeType[endIndex - startIndex] = '\0';
+
+    if(strcmp(mimeType, "html") == 0) return "text/html";
+    else if(strcmp(mimeType, "pdf") == 0) return "application/pdf";
+    else if(strcmp(mimeType, "jpg") == 0) return "image/jpeg";
+    else return "text/*";
+}
+
 int main()
 {
     int connection_socket;
@@ -205,11 +222,45 @@ int main()
                 exit(0);
             }
 
-            char buf_data[100] = "hello";
-            if (send(connection_socket, buf_data, strlen(buf_data) + 1, 0) < 0)
-            {
-                perror("\nError in sending\n");
-            }
+            GetRequestHeaders header;
+            strcpy(header.Host, urldata.ip);
+            strcpy(header.Connection, "close");
+            strcpy(header.Accept_Language, "en-us");
+            strcpy(header.Accept, getMimeType(urldata.route));
+
+            time_t now = time(0);
+            struct tm tm = *gmtime(&now);
+            strftime(header.Date, sizeof(header.Date), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+
+            time_t modifyTime = now - 2*86400;
+            struct tm tm = *gmtime(&modifyTime);
+            strftime(header.If_Modified_Since, sizeof(header.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+
+            char buf_data[100];
+
+            sprintf(buf_data, "GET %s HTTP/1.1\r\n", urldata.route);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "Host: %s\r\n", header.Host);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "Connection: %s\r\n", header.Connection);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "Date: %s\r\n", header.Date);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "Accept: %s\r\n", header.Accept);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "Accept-Language: %s\r\n", header.Accept_Language);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "If-Modified-Since: %s\r\n", header.If_Modified_Since);
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+
+            sprintf(buf_data, "\r\n");
+            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
 
             close(connection_socket);
         }

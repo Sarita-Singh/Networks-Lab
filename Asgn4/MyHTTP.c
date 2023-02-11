@@ -22,7 +22,7 @@ typedef struct _get_request_headers {
     char Host[50];
     char Connection[15];
     char Date[30];
-    char Accept[100];
+    char Accept[20];
     char Accept_Language[20];
     char If_Modified_Since[30];
 }GetRequestHeaders;
@@ -33,7 +33,7 @@ typedef struct _put_request_headers {
     char Date[30];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
 }PutRequestHeaders;
 
 typedef struct _get_response_headers {
@@ -42,7 +42,7 @@ typedef struct _get_response_headers {
     char Cache_Control[15];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
     char Last_Modified[30];
 }GetResponseHeaders;
 
@@ -52,7 +52,7 @@ typedef struct _put_response_headers {
     char Cache_Control[15];
     char Content_Language[20];
     unsigned int Content_Length;
-    char Content_Type[100];
+    char Content_Type[20];
     char Last_Modified[30];
 }PutResponseHeaders;
 
