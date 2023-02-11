@@ -61,6 +61,7 @@ char *receive_chunks(int sockfd)
     int n, total = 0;
     int size = INITIAL_SIZE;
     char *result = (char *)malloc(size * sizeof(char));
+    for(int i = 0; i < size; i++) result[i] = '\0';
     while (1)
     {
         char temp[52];
@@ -87,6 +88,7 @@ char *receive_chunks(int sockfd)
         if (temp[n - 1] == '\0')
             break;
     }
+    result[total] = '\0';
     return result;
 }
 

@@ -153,6 +153,26 @@ URLData parseURL(char* URL) {
     return data;
 }
 
+void send_chunks(int new_socket, char *result)
+{
+    char buffersend[52];
+    int res_len = strlen(result);
+    result[res_len] = '\0';
+    int count = 0;
+    res_len++;
+    for (int i = 0; i < res_len; i += 50)
+    {
+        count = 0;
+        memset(&buffersend, '\0', 52);
+        for (int j = 0; j < 50 && i + j < res_len; j++)
+        {
+            count++;
+            buffersend[j] = result[i + j];
+        }
+        send(new_socket, buffersend, count, 0);
+    }
+}
+
 char* getMimeType(char* route) {
     char* mimeType = (char *)malloc(20*sizeof(char));
     int endIndex = strlen(route);
@@ -234,42 +254,42 @@ int main()
             strftime(header.Date, sizeof(header.Date), "%a, %d %b %Y %H:%M:%S %Z", &tm);
 
             time_t modifyTime = now - 2*86400;
-            struct tm tm = *gmtime(&modifyTime);
-            strftime(header.If_Modified_Since, sizeof(header.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+            struct tm tmModify = *gmtime(&modifyTime);
+            strftime(header.If_Modified_Since, sizeof(header.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
 
             char buf_data[100];
 
             sprintf(buf_data, "GET %s HTTP/1.1\r\n", urldata.route);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "Host: %s\r\n", header.Host);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "Connection: %s\r\n", header.Connection);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "Date: %s\r\n", header.Date);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "Accept: %s\r\n", header.Accept);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "Accept-Language: %s\r\n", header.Accept_Language);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "If-Modified-Since: %s\r\n", header.If_Modified_Since);
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             sprintf(buf_data, "\r\n");
-            printf("%s\n", buf_data);
-            send(connection_socket, buf_data, strlen(buf_data) + 1, 0);
+            // printf("%s\n", buf_data);
+            send_chunks(connection_socket, buf_data);
 
             close(connection_socket);
         }
