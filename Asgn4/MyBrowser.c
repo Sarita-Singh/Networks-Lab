@@ -11,6 +11,8 @@
 #define INITIAL_SIZE 1024
 #define PORT 80
 
+enum RequestTypes{GET, PUT};
+
 enum StatusCodes{
     OK=200,
     BAD_REQUEST=400,
@@ -19,6 +21,7 @@ enum StatusCodes{
 };
 
 typedef struct _request_headers {
+    enum RequestTypes type; //both
     char url[512]; //both
     char Host[50]; //both
     char Connection[15]; //both
@@ -33,6 +36,7 @@ typedef struct _request_headers {
 } RequestHeaders;
 
 typedef struct _response_headers {
+    enum RequestTypes type; //both
     enum StatusCodes statusCode;
     char Expires[25];
     char Cache_Control[15];

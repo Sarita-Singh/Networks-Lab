@@ -21,6 +21,7 @@ enum StatusCodes{
 };
 
 typedef struct _request_headers {
+    enum RequestTypes type; //both
     char url[512]; //both
     char Host[50]; //both
     char Connection[15]; //both
@@ -83,14 +84,13 @@ char *receive_chunks(int sockfd)
 
 void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     int startIndex = 0, currIndex = 0;
-    enum RequestTypes requestType;
 
     // request type
     while(buffer[currIndex] != ' ') currIndex++;
     char requestTypeBuf[5];
     strncat(requestTypeBuf, buffer + startIndex, currIndex - startIndex);
-    if(strcmp(requestTypeBuf, "GET") == 0) requestType = GET;
-    else if(strcmp(requestTypeBuf, "PUT") == 0) requestType = PUT;
+    if(strcmp(requestTypeBuf, "GET") == 0) header->type = GET;
+    else if(strcmp(requestTypeBuf, "PUT") == 0) header->type = PUT;
     else {
         header->isValid = 0;
         return; //bad request
@@ -119,6 +119,8 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     while(buffer[currIndex] != '\0') {
         if(buffer[currIndex] == ':') colonIndex = currIndex;
         if(buffer[currIndex] == '\r') {
+
+            if(currIndex == startIndex) break;
             if(strncmp(buffer + startIndex, "Host", colonIndex - startIndex) == 0) {
                 strncpy(header->Host, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Host[currIndex - colonIndex - 1] = '\0';
@@ -158,18 +160,19 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
                 header->Content_Length = atoi(lengthBuf);
             }
             currIndex++;
+            startIndex = currIndex+1;
         }
         currIndex++;
     }
 
-    if(requestType == GET) {
+    if(header->type == GET) {
         if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since)))
             header->isValid = 0;
         else
             header->isValid = 1;
     }
 
-    if(requestType == PUT) {
+    if(header->type == PUT) {
         if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Length) && strlen(header->Content_Type)))
             header->isValid = 0;
         else
@@ -247,18 +250,27 @@ int main()
         // keep receiving each line of header
         result = receive_chunks(newsockfd);
 
+        parseRequestHeaders(result, &reqHeaders);
+
         // parse the headerline to get data
         // get time, client ip, port
         time_t t;
         t = time(NULL);
         struct tm tm = *localtime(&t);
-        fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT);
+        fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d:%s:%s\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT, reqHeaders.type == GET ? "GET" : "PUT", reqHeaders.url);
         memset(&headerLine, '\0', sizeof(headerLine));
         strcpy(headerLine, result);
         printf("\n%s", headerLine);
 
         // then receive the body if command was 'PUT'
         fclose(filePointer);
+
+        if(!reqHeaders.isValid) {
+            // Send 400
+        }
+        else {
+            // Send 200
+        }
 
         close(newsockfd);
     }
