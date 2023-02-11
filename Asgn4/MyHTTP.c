@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <time.h>
 
 #define INITIAL_SIZE 512
 
@@ -84,6 +85,10 @@ int main()
     memset(&username, '\0', sizeof(username));
 
     int i, newsockfd;
+    
+    // open the file AccessLog.txt
+    FILE *filePointer ; 
+    filePointer = fopen("AccessLog.txt", "w");
     while (1)
     {
         clilen = sizeof(client_address);
@@ -94,11 +99,41 @@ int main()
             perror("\nError in accept\n");
             exit(0);
         }
+
+        // buffer to store the date and time
+        char buf_date_time[50];
+        time_t curr_time;
+        
         printf("\nClient connected\n");
         char *result;
-        result = receive_chunks(newsockfd);
+        int cnt=0;
+        char *headerLine;
 
+        // first receive in a while loop till empty line
+        while(1){
+            if(strcmp(result, "\r\n") == 0){
+                // header over
+                break;
+            }
+            // keep receiving each line of header
+            result = receive_chunks(newsockfd);
+            strcpy(headerLine, result);
+            // parse the headerline to get data
+            if(!cnt){
+                // get time, client ip, port
+                curr_time = time(NULL);
+                // ctime used to get string representing local time for the curr_time
+                snprintf(buf_date_time, sizeof(buf_date_time), "\a%s\n", ctime(&curr_time));
+
+                fprintf(filePointer, "%s", "We", buf_date_time);
+                cnt=1;
+            }
+
+        }
+        // then receive the body if command was 'PUT'
         printf("\n%s", result);
+
+        
         close(newsockfd);
     }
     return 0;
