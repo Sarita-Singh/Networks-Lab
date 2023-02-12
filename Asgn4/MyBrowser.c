@@ -344,7 +344,7 @@ int main()
             send_chunks(connection_socket, requestBuf);
             char *responseResult;
             responseResult = receive_chunks(connection_socket);
-            printf("\ns\n", responseResult);
+            printf("\n%s\n", responseResult);
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
