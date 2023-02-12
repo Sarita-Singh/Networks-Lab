@@ -82,6 +82,26 @@ char *receive_chunks(int sockfd)
     return result;
 }
 
+void send_chunks(int new_socket, char *result)
+{
+    char buffersend[52];
+    int res_len = strlen(result);
+    result[res_len] = '\0';
+    int count = 0;
+    res_len++;
+    for (int i = 0; i < res_len; i += 50)
+    {
+        count = 0;
+        memset(&buffersend, '\0', 52);
+        for (int j = 0; j < 50 && i + j < res_len; j++)
+        {
+            count++;
+            buffersend[j] = result[i + j];
+        }
+        send(new_socket, buffersend, count, 0);
+    }
+}
+
 void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     int startIndex = 0, currIndex = 0;
 
@@ -265,11 +285,88 @@ int main()
         // then receive the body if command was 'PUT'
         fclose(filePointer);
 
+        ResponseHeaders resHeaders;
+
+        strcpy(resHeaders.Cache_Control, "no-store");
+        strcpy(resHeaders.Content_Language, "en-us");
+
+        time_t ExpireTime = time(0) + 3*86400;
+        struct tm tmExpire = *gmtime(&ExpireTime);
+        strftime(resHeaders.Expires, sizeof(resHeaders.Expires), "%a, %d %b %Y %H:%M:%S %Z", &tmExpire);
+
+        char buf_data[100];
+        int size = INITIAL_SIZE;
+        int totalSize = 0;
+        char *responseBuf = (char *)malloc(size * sizeof(char));
+        for(int i = 0; i < size; i++) responseBuf[i] = '\0';
+
         if(!reqHeaders.isValid) {
             // Send 400
+            resHeaders.statusCode = BAD_REQUEST;
+
+            char content[100] = "<p>Bad request send. Please check your request headers.</p>\r\n";
+            resHeaders.Content_Length = strlen(content);
+
+            sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "BAD REQUEST");
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Expires: %s\r\n", resHeaders.Expires);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Cache-Control: %s\r\n", resHeaders.Cache_Control);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Language: %s\r\n", resHeaders.Content_Language);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Length: %d\r\n", resHeaders.Content_Length);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Type: %s\r\n", resHeaders.Content_Type);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Last-Modified: %s\r\n", resHeaders.Last_Modified);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "\r\n");
+            strcat(responseBuf, buf_data);
+
+            strcat(responseBuf, content);
+
+            send_chunks(newsockfd, responseBuf);
         }
         else {
             // Send 200
+            resHeaders.statusCode = OK;
+            strcpy(resHeaders.Content_Type, reqHeaders.Accept);
+
+            sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "OK");
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Expires: %s\r\n", resHeaders.Expires);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Cache-Control: %s\r\n", resHeaders.Cache_Control);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Language: %s\r\n", resHeaders.Content_Language);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Length: %d\r\n", resHeaders.Content_Length);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Content-Type: %s\r\n", resHeaders.Content_Type);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "Last-Modified: %s\r\n", resHeaders.Last_Modified);
+            strcat(responseBuf, buf_data);
+
+            sprintf(buf_data, "\r\n");
+            strcat(responseBuf, buf_data);
+
+            send_chunks(newsockfd, responseBuf);
+
+            //now send file
         }
 
         close(newsockfd);
