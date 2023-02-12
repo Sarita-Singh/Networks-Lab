@@ -44,6 +44,7 @@ typedef struct _response_headers {
     unsigned int Content_Length;
     char Content_Type[20];
     char Last_Modified[30];
+    int isValid;
 } ResponseHeaders;
 
 typedef struct _url_data {
@@ -151,6 +152,84 @@ URLData parseURL(char* URL) {
     return data;
 }
 
+void parseResponseHeaders(char *buffer, ResponseHeaders* header) {
+    int startIndex = 0, currIndex = 0;
+
+    // http version
+    while(buffer[currIndex] != ' ') currIndex++;
+    char httpVersionBuf[10];
+    memset(httpVersionBuf, '\0', 10);
+    strncat(httpVersionBuf, buffer + startIndex, currIndex - startIndex);
+    httpVersionBuf[currIndex - startIndex] = '\0';
+    if(strcmp(httpVersionBuf, "HTTP/1.1") != 0) {
+        header->isValid = 0;
+        return; //bad response
+    }
+
+    // status code
+    startIndex = ++currIndex;
+    while(buffer[currIndex] != ' ') currIndex++;
+    char statusCodeBuf[5];
+    memset(statusCodeBuf, '\0', 5);
+    strncat(statusCodeBuf, buffer + startIndex, currIndex - startIndex);
+    statusCodeBuf[currIndex - startIndex] = '\0';
+    header->statusCode = atoi(statusCodeBuf);
+
+    // skip rest. goto next line
+    while(buffer[currIndex] != '\r') currIndex++;
+    currIndex += 2;
+    startIndex = currIndex;
+
+    int colonIndex;
+    while(buffer[currIndex] != '\0') {
+        if(buffer[currIndex] == ':' && buffer[currIndex+1] == ' ') colonIndex = currIndex;
+        if(buffer[currIndex] == '\r') {
+
+            if(currIndex == startIndex) break;
+            if(strncmp(buffer + startIndex, "Expires", colonIndex - startIndex) == 0) {
+                memset(header->Expires, '\0', 50);
+                strncpy(header->Expires, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Expires[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Cache-Control", colonIndex - startIndex) == 0) {
+                memset(header->Cache_Control, '\0', 15);
+                strncpy(header->Cache_Control, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Cache_Control[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0) {
+                memset(header->Content_Language, '\0', 30);
+                strncpy(header->Content_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Content_Language[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0) {
+                memset(header->Content_Type, '\0', 20);
+                strncpy(header->Content_Type, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Content_Type[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "Last-Modified", colonIndex - startIndex) == 0) {
+                memset(header->Last_Modified, '\0', 20);
+                strncpy(header->Last_Modified, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                header->Last_Modified[currIndex - colonIndex - 1] = '\0';
+            }
+            else if(strncmp(buffer + startIndex, "ContentLength", colonIndex - startIndex) == 0) {
+                char lengthBuf[10];
+                memset(lengthBuf, '\0', 10);
+                strncpy(lengthBuf, buffer + colonIndex + 1, currIndex - colonIndex - 1);
+                lengthBuf[currIndex - colonIndex - 1] = '\0';
+                header->Content_Length = atoi(lengthBuf);
+            }
+            currIndex++;
+            startIndex = currIndex+1;
+        }
+        currIndex++;
+    }
+
+    if(!(strlen(header->Expires) && strlen(header->Cache_Control) && strlen(header->Content_Language) && strlen(header->Content_Type) && strlen(header->Last_Modified)))
+            header->isValid = 0;
+    else
+        header->isValid = 1;
+}
+
 void send_chunks(int new_socket, char *result)
 {
     char buffersend[52];
@@ -207,6 +286,25 @@ char *receive_chunks(int sockfd)
     }
     result[total] = '\0';
     return result;
+}
+
+void write_file(int sockfd){
+  int n;
+  FILE *fp;
+  char *filename = "recv.txt";
+  char buffer[50];
+ 
+  fp = fopen(filename, "w");
+  while (1) {
+    n = recv(sockfd, buffer, 50, 0);
+    if (n <= 0){
+      break;
+    }
+    fprintf(fp, "%s", buffer);
+    bzero(buffer, 50);
+  }
+  fclose(fp);
+  return;
 }
 
 char* getMimeType(char* route) {
@@ -345,11 +443,18 @@ int main()
             send_chunks(connection_socket, requestBuf);
             char *responseResult;
             responseResult = receive_chunks(connection_socket);
-            printf("\n%s\n", responseResult);
-
+            
             // parse the response
+            ResponseHeaders resHeaders;
+            parseResponseHeaders(responseResult, &resHeaders);
 
-            char *fileBody;
+            if(resHeaders.statusCode == OK) {
+                // read file and save to disk and open using an app.
+                write_file(connection_socket);
+            }
+            else {
+                // if content-type is text/html, show it in browser. if text/* print in terminalk. else ignore.
+            }
 
             close(connection_socket);
         }

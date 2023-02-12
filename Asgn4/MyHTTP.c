@@ -45,6 +45,7 @@ typedef struct _response_headers {
     unsigned int Content_Length;
     char Content_Type[20];
     char Last_Modified[30];
+    int isValid;
 } ResponseHeaders;
 
 char *receive_chunks(int sockfd)
@@ -124,7 +125,7 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     memset(requestTypeBuf, '\0', 5);
     strncat(requestTypeBuf, buffer + startIndex, currIndex - startIndex);
     requestTypeBuf[currIndex - startIndex] = '\0';
-    printf("\ntype = %s\n",requestTypeBuf);
+    
     if(strcmp(requestTypeBuf, "GET") == 0) header->type = GET;
     else if(strcmp(requestTypeBuf, "PUT") == 0) header->type = PUT;
     else {
@@ -138,13 +139,12 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     memset(header->url, '\0', 512);
     strncat(header->url, buffer + startIndex, currIndex - startIndex);
     header->url[currIndex - startIndex] = '\0';
-    printf("\nurl = %s\n",header->url);
 
     //http version
     startIndex = currIndex + 1;
-    char httpVersionBuf[5];
+    char httpVersionBuf[10];
     while(buffer[currIndex] != '\r') currIndex++;
-    memset(httpVersionBuf, '\0', 5);
+    memset(httpVersionBuf, '\0', 10);
     strncat(httpVersionBuf, buffer + startIndex, currIndex - startIndex);
     httpVersionBuf[currIndex - startIndex] = '\0';
     if(strcmp(httpVersionBuf, "HTTP/1.1") != 0) {
@@ -323,6 +323,7 @@ int main()
         memset(resHeaders.Content_Language, '\0', 20);
         memset(resHeaders.Expires, '\0', 30);
         memset(resHeaders.Last_Modified, '\0', 30);
+        memset(resHeaders.Content_Type, '\0', 20);
         strcpy(resHeaders.Cache_Control, "no-store");
         strcpy(resHeaders.Content_Language, "en-us");
 
@@ -338,7 +339,7 @@ int main()
         for(int i = 0; i < size; i++) responseBuf[i] = '\0';
 
         char filename[512];
-        strcpy(filename, reqHeaders.url);
+        strcpy(filename, reqHeaders.url + 1);
 
         struct stat s = {0};
 
@@ -363,6 +364,7 @@ int main()
             memset(content, '\0', 100);
             strcpy(content,"<p>Bad request send. Please check your request headers.</p>\r\n");
             resHeaders.Content_Length = strlen(content);
+            strcpy(resHeaders.Content_Type, "text/html");
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "BAD REQUEST");
             strcat(responseBuf, buf_data);
