@@ -108,12 +108,13 @@ void send_chunks(int new_socket, char *result)
 
 // send file in chunks
 void send_file(int sockfd, FILE *fp){
-  int n;
-  char data[52] ;
+  int total = 0;
+  char data[52];
+  bzero(data, 52);
  
   while(fgets(data, 50, fp) != NULL) {
+    total += send(sockfd, data, 50, 0);
     bzero(data, 52);
-    send(sockfd, data, 50, 0);
   }
 }
 
@@ -203,7 +204,6 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
                 memset(header->Content_Type, '\0', 20);
                 strncpy(header->Content_Type, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Content_Type[currIndex - colonIndex - 1] = '\0';
-                printf("\ncntent type = %s\n", header->Content_Type);
             }
             else if(strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0) {
                 char lengthBuf[20];
@@ -304,10 +304,8 @@ int main()
         // char *headerLine = (char *)malloc((strlen(result)+1)*sizeof(char));
         // memset(&headerLine, '\0', sizeof(headerLine));
         // strcpy(headerLine, result);
-        printf("\n%s", result);
         parseRequestHeaders(result, &reqHeaders);
 
-        printf("host = %s isvalid = %d type = %d url = %s ", reqHeaders.Host, reqHeaders.isValid, reqHeaders.type, reqHeaders.url);
         // parse the headerline to get data
         // get time, client ip, port
         time_t t;
@@ -340,7 +338,7 @@ int main()
         for(int i = 0; i < size; i++) responseBuf[i] = '\0';
 
         char filename[512];
-        strcpy(filename, reqHeaders.url);
+        strcpy(filename, reqHeaders.url + 1);
         size_t filesize;
         struct stat s = {0};
 
@@ -402,7 +400,7 @@ int main()
             strcat(responseBuf, content);
             totalSize += strlen(content);             
             // responseBuf[totalSize] = '\0';
-            printf("\nresponse buf = %s\n", responseBuf);
+            printf("\n%s\n", responseBuf);
             send_chunks(newsockfd, responseBuf);
         }
         else {
@@ -410,6 +408,7 @@ int main()
             resHeaders.statusCode = OK;
             memset(resHeaders.Content_Type, '\0', 20);
             strcpy(resHeaders.Content_Type, reqHeaders.Accept);
+            resHeaders.Content_Length = (unsigned int)filesize;
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "OK");
             strcat(responseBuf, buf_data);
@@ -443,20 +442,13 @@ int main()
             strcat(responseBuf, buf_data);
             totalSize += strlen(buf_data); 
             responseBuf[totalSize] = '\0';
-            printf("\nresponse buf = %s\n", responseBuf);
+
+            printf("\n%s\n", responseBuf);
             send_chunks(newsockfd, responseBuf);
             printf("\nresponse sent\n");
-            //now send file
-            // send_file(newsockfd, fp);
-            sendfile(newsockfd, fd, NULL, filesize+1);
-            
-            // char *htdoc = "/opt/server/htdoc"; // here a sub-directory of the server program
-         
-            // char filepath[512]; // build the file-system path
-            // snprintf(filepath, sizeof(filepath) - 1, "%s/%s", htdoc, req_path);
 
-            // FILE *f = fopen(filepath, "r"); // try to open the file
-            
+            //now send file
+            send_file(newsockfd, fp);
         }
 
         close(newsockfd);
