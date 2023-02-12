@@ -134,7 +134,6 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     memset(httpVersionBuf, '\0', 5);
     strncat(httpVersionBuf, buffer + startIndex, currIndex - startIndex);
     httpVersionBuf[currIndex - startIndex] = '\0';
-    printf("\nhttp version = %s\n",httpVersionBuf);
     if(strcmp(httpVersionBuf, "HTTP/1.1") != 0) {
         header->isValid = 0;
         return; //bad request
@@ -147,7 +146,7 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
 
     int colonIndex;
     while(buffer[currIndex] != '\0') {
-        if(buffer[currIndex] == ':') colonIndex = currIndex;
+        if(buffer[currIndex] == ':' && buffer[currIndex+1] == ' ') colonIndex = currIndex;
         if(buffer[currIndex] == '\r') {
 
             if(currIndex == startIndex) break;
@@ -310,13 +309,14 @@ int main()
         memset(resHeaders.Cache_Control, '\0', 15);
         memset(resHeaders.Content_Language, '\0', 20);
         memset(resHeaders.Expires, '\0', 30);
+        memset(resHeaders.Last_Modified, '\0', 30);
         strcpy(resHeaders.Cache_Control, "no-store");
         strcpy(resHeaders.Content_Language, "en-us");
 
         time_t ExpireTime = time(0) + 3*86400;
         struct tm tmExpire = *gmtime(&ExpireTime);
         strftime(resHeaders.Expires, sizeof(resHeaders.Expires), "%a, %d %b %Y %H:%M:%S %Z", &tmExpire);
-        printf("\nexpires %s\n", resHeaders.Expires);
+        strcpy(resHeaders.Last_Modified, resHeaders.Expires);
 
         char buf_data[100];
         int size = INITIAL_SIZE;
@@ -408,7 +408,7 @@ int main()
             sprintf(buf_data, "\r\n");
             strcat(responseBuf, buf_data);
             totalSize += strlen(buf_data); 
-            // responseBuf[totalSize] = '\0';
+            responseBuf[totalSize] = '\0';
             printf("\nresponse buf = %s\n", responseBuf);
             send_chunks(newsockfd, responseBuf);
 
