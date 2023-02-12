@@ -116,6 +116,8 @@ void send_file(int sockfd, FILE *fp){
     total += send(sockfd, data, 50, 0);
     bzero(data, 52);
   }
+
+  printf("send: %d\n", total);
 }
 
 void parseRequestHeaders(char *buffer, RequestHeaders* header) {
@@ -349,7 +351,7 @@ int main()
             resHeaders.statusCode = NOT_FOUND;
         }
         filesize = s.st_size;
-        FILE *fp = fopen(filename, "r");
+        FILE *fp = fopen(filename, "rb");
         if (fp == NULL) {
             perror("Error in reading file.");
             exit(1);

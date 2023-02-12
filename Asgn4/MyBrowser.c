@@ -295,7 +295,7 @@ void write_file(int sockfd){
 
   char buffer[52];
  
-  fp = fopen(filename, "w");
+  fp = fopen(filename, "wb");
   while (1) {
     memset(buffer, '\0', 52);
     n = recv(sockfd, buffer, 50, 0);
