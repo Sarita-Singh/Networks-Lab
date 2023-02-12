@@ -268,11 +268,11 @@ char *receive_chunks(int sockfd)
             perror("Unable to read from socket");
             exit(1);
         }
-        if (n == 0)
-        {
-            perror("Connection closed by client");
-            exit(1);
-        }
+        // if (n == 0)
+        // {
+        //     perror("Connection closed by client");
+        //     exit(1);
+        // }
         total += n;
         long long l = strlen(temp);
         if (l + n > size)
@@ -292,16 +292,21 @@ void write_file(int sockfd){
   int n;
   FILE *fp;
   char *filename = "recv.txt";
-  char buffer[50];
+
+  printf("error-check1\n");
+
+  char buffer[52];
  
   fp = fopen(filename, "w");
   while (1) {
+    memset(buffer, '\0', 52);
     n = recv(sockfd, buffer, 50, 0);
-    if (n <= 0){
+    if (n < 0){
       break;
     }
     fprintf(fp, "%s", buffer);
-    bzero(buffer, 50);
+    if(buffer[n-1]==EOF)
+        break;    
   }
   fclose(fp);
   return;
@@ -350,6 +355,8 @@ int main()
 
         char **cmd = parseCommand(inp_cmd, args);
 
+        printf("error-check8\n");
+
         if (!cmd[0])
         {
             continue;
@@ -359,6 +366,8 @@ int main()
         else if (strcmp(cmd[0], "GET") == 0)
         {
             URLData urldata = parseURL(cmd[1]);
+
+            printf("error-check9\n");
             
             // creating a socket
             if((connection_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -378,7 +387,14 @@ int main()
                 exit(0);
             }
 
+            printf("error-check5\n");
+
             RequestHeaders reqHeader;
+            memset(reqHeader.url,'\0', 512);
+            memset(reqHeader.Host,'\0', 50);
+            memset(reqHeader.Connection,'\0', 15);
+            memset(reqHeader.Accept_Language,'\0', 20);
+            memset(reqHeader.Accept,'\0', 20);
             strcpy(reqHeader.url, urldata.route);
             strcpy(reqHeader.Host, urldata.ip);
             strcpy(reqHeader.Connection, "close");
@@ -398,6 +414,8 @@ int main()
             int totalSize = 0;
             char *requestBuf = (char *)malloc(size * sizeof(char));
             for(int i = 0; i < size; i++) requestBuf[i] = '\0';
+
+            printf("error-check6\n");
 
             sprintf(buf_data, "GET %s HTTP/1.1\r\n", urldata.route);
             // printf("%s\n", buf_data);
@@ -440,13 +458,21 @@ int main()
             totalSize += strlen(buf_data);
             requestBuf[totalSize] = '\0';
 
+            printf("error-check7\n");
+
             send_chunks(connection_socket, requestBuf);
+
+            printf("error-check2\n");
             char *responseResult;
             responseResult = receive_chunks(connection_socket);
+
+            printf("error-check3\n");
             
             // parse the response
             ResponseHeaders resHeaders;
             parseResponseHeaders(responseResult, &resHeaders);
+
+            printf("error-check4\n");
 
             if(resHeaders.statusCode == OK) {
                 // read file and save to disk and open using an app.
@@ -454,6 +480,7 @@ int main()
             }
             else {
                 // if content-type is text/html, show it in browser. if text/* print in terminalk. else ignore.
+                printf("kuch toh error hai\n");
             }
 
             close(connection_socket);
