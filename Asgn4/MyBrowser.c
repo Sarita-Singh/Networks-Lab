@@ -288,22 +288,39 @@ char *receive_chunks(int sockfd)
     return result;
 }
 
-void write_file(int sockfd){
+void write_file(int sockfd, char* mimeType){
   int n;
   FILE *fp;
   char *filename = "recv.txt";
+  printf("mime: %s\n", mimeType);
+  if(strcmp(mimeType, "  application/pdf") == 0 || strcmp(mimeType, "  image/jpeg") == 0) {
+    printf("binary\n");
+    void* buffer = (void *)malloc(52);
+    fp = fopen(filename, "wb");
 
-  char buffer[52];
- 
-  fp = fopen(filename, "wb");
-  while (1) {
-    memset(buffer, '\0', 52);
-    n = recv(sockfd, buffer, 50, 0);
-    if (n <= 0){
-      break;
+    while (1) {
+        n = recv(sockfd, buffer, 50, 0);
+        if (n <= 0){
+            break;
+        }
+        // fprintf(fp, "%s", buffer);
+        fwrite(buffer, 1, n, fp);
     }
-    fprintf(fp, "%s", buffer);
   }
+  else {
+    printf("text\n");
+    char* buffer = (char *)malloc(52);
+    fp = fopen(filename, "w");
+
+    while (1) {
+        n = recv(sockfd, buffer, 50, 0);
+        if (n <= 0){
+            break;
+        }
+        fprintf(fp, "%s", buffer);
+    }
+  }
+
   fclose(fp);
   return;
 }
@@ -457,7 +474,7 @@ int main()
 
             if(resHeaders.statusCode == OK) {
                 // read file and save to disk and open using an app.
-                write_file(connection_socket);
+                write_file(connection_socket, resHeaders.Content_Type);
             }
             else {
                 // if content-type is text/html, show it in browser. if text/* print in terminalk. else ignore.

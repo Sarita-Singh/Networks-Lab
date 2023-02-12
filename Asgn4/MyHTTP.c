@@ -107,14 +107,28 @@ void send_chunks(int new_socket, char *result)
 }
 
 // send file in chunks
-void send_file(int sockfd, FILE *fp){
+void send_file(int sockfd, FILE *fp, char* mimeType){
   int total = 0;
-  char data[52];
-  bzero(data, 52);
- 
-  while(fgets(data, 50, fp) != NULL) {
-    total += send(sockfd, data, 50, 0);
+
+  printf("mime: %s\n", mimeType);
+
+  if(strcmp(mimeType, " application/pdf") == 0 || strcmp(mimeType, " image/jpeg") == 0) {
+    printf("binary\n");
+    void* data = (void *)malloc(52);
     bzero(data, 52);
+    while(fread(data, 1, 50, fp) != 0) {
+        total += send(sockfd, data, 50, 0);
+        bzero(data, 52);
+    }
+  }
+  else {
+    printf("text\n");
+    char data[52];
+    bzero(data, 52);
+    while(fgets(data, 50, fp) != NULL) {
+        total += send(sockfd, data, 50, 0);
+        bzero(data, 52);
+    }
   }
 
   printf("send: %d\n", total);
@@ -351,7 +365,8 @@ int main()
             resHeaders.statusCode = NOT_FOUND;
         }
         filesize = s.st_size;
-        FILE *fp = fopen(filename, "rb");
+        FILE *fp;
+        fp = strcmp(reqHeaders.Accept, "  application/pdf") == 0 || strcmp(reqHeaders.Accept, "  image/jpeg") == 0 ? fopen(filename, "rb") : fopen(filename, "r");
         if (fp == NULL) {
             perror("Error in reading file.");
             exit(1);
@@ -450,7 +465,7 @@ int main()
             printf("\nresponse sent\n");
 
             //now send file
-            send_file(newsockfd, fp);
+            send_file(newsockfd, fp, resHeaders.Content_Type);
         }
 
         close(newsockfd);
