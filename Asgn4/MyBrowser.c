@@ -167,8 +167,46 @@ void send_chunks(int new_socket, char *result)
             count++;
             buffersend[j] = result[i + j];
         }
+        // send in chunks of not more than 50 bytes
         send(new_socket, buffersend, count, 0);
     }
+}
+
+char *receive_chunks(int sockfd)
+{
+    int n, total = 0;
+    int size = INITIAL_SIZE;
+    char *result = (char *)malloc(size * sizeof(char));
+    for (int i = 0; i < size; i++)
+        result[i] = '\0';
+    while (1)
+    {
+        char temp[52];
+        memset(&temp, '\0', 52);
+        n = recv(sockfd, temp, 50, 0);
+        if (n < 0)
+        {
+            perror("Unable to read from socket");
+            exit(1);
+        }
+        if (n == 0)
+        {
+            perror("Connection closed by client");
+            exit(1);
+        }
+        total += n;
+        long long l = strlen(temp);
+        if (l + n > size)
+        {
+            size = 2 * (l + n + 1);
+            result = (char *)realloc(result, size);
+        }
+        strcat(result, temp);
+        if (temp[n - 1] == '\0')
+            break;
+    }
+    result[total] = '\0';
+    return result;
 }
 
 char* getMimeType(char* route) {
@@ -304,6 +342,9 @@ int main()
             requestBuf[totalSize] = '\0';
 
             send_chunks(connection_socket, requestBuf);
+            char *responseResult;
+            responseResult = receive_chunks(connection_socket);
+            printf("\ns\n", responseResult);
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)

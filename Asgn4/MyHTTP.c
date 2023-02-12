@@ -37,7 +37,7 @@ typedef struct _request_headers {
 
 typedef struct _response_headers {
     enum StatusCodes statusCode;
-    char Expires[25];
+    char Expires[30];
     char Cache_Control[15];
     char Content_Language[20];
     unsigned int Content_Length;
@@ -108,7 +108,10 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     // request type
     while(buffer[currIndex] != ' ') currIndex++;
     char requestTypeBuf[5];
+    memset(requestTypeBuf, '\0', 5);
     strncat(requestTypeBuf, buffer + startIndex, currIndex - startIndex);
+    requestTypeBuf[currIndex - startIndex] = '\0';
+    printf("\ntype = %s\n",requestTypeBuf);
     if(strcmp(requestTypeBuf, "GET") == 0) header->type = GET;
     else if(strcmp(requestTypeBuf, "PUT") == 0) header->type = PUT;
     else {
@@ -117,15 +120,21 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
 
     // url
-    startIndex = currIndex + 1;
+    startIndex = ++currIndex;
     while(buffer[currIndex] != ' ') currIndex++;
+    memset(header->url, '\0', 512);
     strncat(header->url, buffer + startIndex, currIndex - startIndex);
+    header->url[currIndex - startIndex] = '\0';
+    printf("\nurl = %s\n",header->url);
 
     //http version
     startIndex = currIndex + 1;
     char httpVersionBuf[5];
     while(buffer[currIndex] != '\r') currIndex++;
+    memset(httpVersionBuf, '\0', 5);
     strncat(httpVersionBuf, buffer + startIndex, currIndex - startIndex);
+    httpVersionBuf[currIndex - startIndex] = '\0';
+    printf("\nhttp version = %s\n",httpVersionBuf);
     if(strcmp(httpVersionBuf, "HTTP/1.1") != 0) {
         header->isValid = 0;
         return; //bad request
@@ -133,7 +142,8 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
 
     // start of request headers
     // skip \n
-    startIndex = currIndex + 2;
+    currIndex += 2;
+    startIndex = currIndex;
 
     int colonIndex;
     while(buffer[currIndex] != '\0') {
@@ -142,39 +152,49 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
 
             if(currIndex == startIndex) break;
             if(strncmp(buffer + startIndex, "Host", colonIndex - startIndex) == 0) {
+                memset(header->Host, '\0', 50);
                 strncpy(header->Host, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Host[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Connection", colonIndex - startIndex) == 0) {
+                memset(header->Connection, '\0', 15);
                 strncpy(header->Connection, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Connection[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Date", colonIndex - startIndex) == 0) {
+                memset(header->Date, '\0', 30);
                 strncpy(header->Date, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Date[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Accept", colonIndex - startIndex) == 0) {
+                memset(header->Accept, '\0', 20);
                 strncpy(header->Accept, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Accept[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Accept-Language", colonIndex - startIndex) == 0) {
+                memset(header->Accept_Language, '\0', 20);
                 strncpy(header->Accept_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Accept_Language[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "If-Modified-Since", colonIndex - startIndex) == 0) {
+                memset(header->If_Modified_Since, '\0', 30);
                 strncpy(header->If_Modified_Since, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->If_Modified_Since[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0) {
+                memset(header->Content_Language, '\0', 20);
                 strncpy(header->Content_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Content_Language[currIndex - colonIndex - 1] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0) {
+                memset(header->Content_Type, '\0', 20);
                 strncpy(header->Content_Type, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 header->Content_Type[currIndex - colonIndex - 1] = '\0';
+                printf("\ncntent type = %s\n", header->Content_Type);
             }
             else if(strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0) {
                 char lengthBuf[20];
+                memset(lengthBuf, '\0', 20);
                 strncpy(lengthBuf, buffer + colonIndex + 1, currIndex - colonIndex - 1);
                 lengthBuf[currIndex - colonIndex - 1] = '\0';
                 header->Content_Length = atoi(lengthBuf);
@@ -262,37 +282,41 @@ int main()
         printf("\nClient connected\n");
         char *result;
         int cnt = 0;
-        char headerLine[INITIAL_SIZE];
 
         RequestHeaders reqHeaders;
 
         // first receive in a while loop till empty line
         // keep receiving each line of header
         result = receive_chunks(newsockfd);
-
+        // char *headerLine = (char *)malloc((strlen(result)+1)*sizeof(char));
+        // memset(&headerLine, '\0', sizeof(headerLine));
+        // strcpy(headerLine, result);
+        printf("\n%s", result);
         parseRequestHeaders(result, &reqHeaders);
 
+        printf("host = %s isvalid = %d type = %d url = %s ", reqHeaders.Host, reqHeaders.isValid, reqHeaders.type, reqHeaders.url);
         // parse the headerline to get data
         // get time, client ip, port
         time_t t;
         t = time(NULL);
         struct tm tm = *localtime(&t);
         fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d:%s:%s\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT, reqHeaders.type == GET ? "GET" : "PUT", reqHeaders.url);
-        memset(&headerLine, '\0', sizeof(headerLine));
-        strcpy(headerLine, result);
-        printf("\n%s", headerLine);
+        
 
         // then receive the body if command was 'PUT'
         fclose(filePointer);
 
         ResponseHeaders resHeaders;
-
+        memset(resHeaders.Cache_Control, '\0', 15);
+        memset(resHeaders.Content_Language, '\0', 20);
+        memset(resHeaders.Expires, '\0', 30);
         strcpy(resHeaders.Cache_Control, "no-store");
         strcpy(resHeaders.Content_Language, "en-us");
 
         time_t ExpireTime = time(0) + 3*86400;
         struct tm tmExpire = *gmtime(&ExpireTime);
         strftime(resHeaders.Expires, sizeof(resHeaders.Expires), "%a, %d %b %Y %H:%M:%S %Z", &tmExpire);
+        printf("\nexpires %s\n", resHeaders.Expires);
 
         char buf_data[100];
         int size = INITIAL_SIZE;
@@ -304,66 +328,88 @@ int main()
             // Send 400
             resHeaders.statusCode = BAD_REQUEST;
 
-            char content[100] = "<p>Bad request send. Please check your request headers.</p>\r\n";
+            char content[100];
+            memset(content, '\0', 100);
+            strcpy(content,"<p>Bad request send. Please check your request headers.</p>\r\n");
             resHeaders.Content_Length = strlen(content);
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "BAD REQUEST");
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Expires: %s\r\n", resHeaders.Expires);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Cache-Control: %s\r\n", resHeaders.Cache_Control);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Language: %s\r\n", resHeaders.Content_Language);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Length: %d\r\n", resHeaders.Content_Length);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Type: %s\r\n", resHeaders.Content_Type);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Last-Modified: %s\r\n", resHeaders.Last_Modified);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "\r\n");
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             strcat(responseBuf, content);
-
+            totalSize += strlen(content);             
+            // responseBuf[totalSize] = '\0';
+            printf("\nresponse buf = %s\n", responseBuf);
             send_chunks(newsockfd, responseBuf);
         }
         else {
             // Send 200
             resHeaders.statusCode = OK;
+            memset(resHeaders.Content_Type, '\0', 20);
             strcpy(resHeaders.Content_Type, reqHeaders.Accept);
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "OK");
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Expires: %s\r\n", resHeaders.Expires);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Cache-Control: %s\r\n", resHeaders.Cache_Control);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Language: %s\r\n", resHeaders.Content_Language);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Length: %d\r\n", resHeaders.Content_Length);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Content-Type: %s\r\n", resHeaders.Content_Type);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "Last-Modified: %s\r\n", resHeaders.Last_Modified);
             strcat(responseBuf, buf_data);
+            totalSize += strlen(buf_data); 
 
             sprintf(buf_data, "\r\n");
             strcat(responseBuf, buf_data);
-
+            totalSize += strlen(buf_data); 
+            // responseBuf[totalSize] = '\0';
+            printf("\nresponse buf = %s\n", responseBuf);
             send_chunks(newsockfd, responseBuf);
 
             //now send file
