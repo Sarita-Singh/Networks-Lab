@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
 #include <time.h>
 
 #define INITIAL_SIZE 512
@@ -100,6 +102,17 @@ void send_chunks(int new_socket, char *result)
         }
         send(new_socket, buffersend, count, 0);
     }
+}
+
+// send file in chunks
+void send_file(int sockfd, FILE *fp){
+  int n;
+  char data[INITIAL_SIZE] = {0};
+ 
+  while(fgets(data, INITIAL_SIZE, fp) != NULL) {
+    send_chunks(sockfd, data);
+    bzero(data, INITIAL_SIZE);
+  }
 }
 
 void parseRequestHeaders(char *buffer, RequestHeaders* header) {
@@ -324,6 +337,24 @@ int main()
         char *responseBuf = (char *)malloc(size * sizeof(char));
         for(int i = 0; i < size; i++) responseBuf[i] = '\0';
 
+        char filename[512];
+        strcpy(filename, reqHeaders.url);
+
+        struct stat s = {0};
+
+        if (!(stat(filename, &s)))
+        {
+            if (ENOENT == errno)
+            // file does not exist
+            resHeaders.statusCode = NOT_FOUND;
+        }
+
+        FILE *fp = fopen(filename, "r");
+        if (fp == NULL) {
+            perror("Error in reading file.");
+            exit(1);
+        }
+        
         if(!reqHeaders.isValid) {
             // Send 400
             resHeaders.statusCode = BAD_REQUEST;
@@ -413,6 +444,15 @@ int main()
             send_chunks(newsockfd, responseBuf);
 
             //now send file
+            send_file(newsockfd, fp);
+            
+            // char *htdoc = "/opt/server/htdoc"; // here a sub-directory of the server program
+         
+            // char filepath[512]; // build the file-system path
+            // snprintf(filepath, sizeof(filepath) - 1, "%s/%s", htdoc, req_path);
+
+            // FILE *f = fopen(filepath, "r"); // try to open the file
+            
         }
 
         close(newsockfd);

@@ -226,6 +226,7 @@ char* getMimeType(char* route) {
     else return "text/*";
 }
 
+
 int main()
 {
     int connection_socket;
@@ -345,6 +346,11 @@ int main()
             char *responseResult;
             responseResult = receive_chunks(connection_socket);
             printf("\n%s\n", responseResult);
+
+            // parse the response
+
+            char *fileBody;
+
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
