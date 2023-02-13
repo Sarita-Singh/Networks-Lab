@@ -135,7 +135,6 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     memset(requestTypeBuf, '\0', 5);
     strncat(requestTypeBuf, buffer + startIndex, currIndex - startIndex);
     requestTypeBuf[currIndex - startIndex] = '\0';
-    
     if(strcmp(requestTypeBuf, "GET") == 0) header->type = GET;
     else if(strcmp(requestTypeBuf, "PUT") == 0) header->type = PUT;
     else {
@@ -166,9 +165,8 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     // skip \n
     currIndex += 2;
     startIndex = currIndex;
-
     int colonIndex;
-    while(!(buffer[currIndex] == '\n' && buffer[currIndex+1] == '\r' && buffer[currIndex+2] == '\n')) {
+    while(currIndex < strlen(buffer) && (!(buffer[currIndex] == '\n' && buffer[currIndex+1] == '\r' && buffer[currIndex+2] == '\n'))) {
         if(buffer[currIndex] == ':' && buffer[currIndex+1] == ' ') colonIndex = currIndex;
         if(buffer[currIndex] == '\r') {
 
@@ -188,37 +186,38 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
                 strncpy(header->Date, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->Date[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "Accept", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "GET")) && (strncmp(buffer + startIndex, "Accept", colonIndex - startIndex) == 0)) {
                 memset(header->Accept, '\0', 20);
                 strncpy(header->Accept, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->Accept[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "Accept-Language", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "GET")) && (strncmp(buffer + startIndex, "Accept-Language", colonIndex - startIndex) == 0)) {
                 memset(header->Accept_Language, '\0', 20);
                 strncpy(header->Accept_Language, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->Accept_Language[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "If-Modified-Since", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "GET")) && (strncmp(buffer + startIndex, "If-Modified-Since", colonIndex - startIndex) == 0)) {
                 memset(header->If_Modified_Since, '\0', 30);
                 strncpy(header->If_Modified_Since, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->If_Modified_Since[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "PUT")) && (strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0)) {
                 memset(header->Content_Language, '\0', 20);
                 strncpy(header->Content_Language, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->Content_Language[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "PUT")) && (strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0)) {
                 memset(header->Content_Type, '\0', 20);
                 strncpy(header->Content_Type, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 header->Content_Type[currIndex - colonIndex - 2] = '\0';
             }
-            else if(strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0) {
+            else if((!strcmp(requestTypeBuf, "PUT")) && (strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0)) {
                 char lengthBuf[20];
                 memset(lengthBuf, '\0', 20);
                 strncpy(lengthBuf, buffer + colonIndex + 2, currIndex - colonIndex - 2);
                 lengthBuf[currIndex - colonIndex - 2] = '\0';
-                header->Content_Length = atoi(lengthBuf);
+                int x = atoi(lengthBuf);
+                header->Content_Length = x;
             }
             currIndex++;
             startIndex = currIndex+1;
@@ -227,7 +226,6 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
     currIndex += 3;
     buffer += currIndex;
-
     if(header->type == GET) {
         if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since)))
             header->isValid = 0;
@@ -236,7 +234,7 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
 
     if(header->type == PUT) {
-        if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Length) && strlen(header->Content_Type)))
+        if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Content_Language) && strlen(header->Content_Type)))
             header->isValid = 0;
         else
             header->isValid = 1;
@@ -246,6 +244,9 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
 void write_file(int sockfd, char* mimeType, char *filename){
   int n=0;
   FILE *fp;
+  if(strcmp(mimeType, "application/pdf") == 0) strcat(filename, ".pdf");
+  else if(strcmp(mimeType, "image/jpeg") == 0) strcat(filename, ".jpg");
+  else strcat(filename, ".txt");
   if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
     void* buffer = (void *)malloc(52);
     fp = fopen(filename, "wb+");
@@ -364,12 +365,11 @@ int main()
         time_t ExpireTime = time(0) + 3*86400;
         struct tm tmExpire = *gmtime(&ExpireTime);
         strftime(resHeaders.Expires, sizeof(resHeaders.Expires), "%a, %d %b %Y %H:%M:%S %Z", &tmExpire);
-
         //get filename
         char filename[512];
         memset(filename, '\0', 512);
         if(reqHeaders.type == PUT) strcat(filename, "server-"); // for debugging
-        strcat(filename, reqHeaders.url+1);
+        else strcat(filename, reqHeaders.url);
         size_t filesize;
 
         // receive and write to file for PUT

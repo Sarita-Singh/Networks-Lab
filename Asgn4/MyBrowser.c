@@ -120,7 +120,10 @@ URLData parseURL(char* URL) {
         data.port = atoi(portString);
 
         // no route provided
-        if(URL[endIndex] == '\0') return data;
+        if(URL[endIndex] == '\0') {
+            strcat(data.route, "/");
+            return data;
+        }
 
         startIndex = endIndex++;
         while(URL[endIndex] != '\0') endIndex++;
@@ -328,6 +331,28 @@ void write_file(int sockfd, char* mimeType, char *filename){
   return;
 }
 
+// send file in chunks
+void send_file(int sockfd, FILE *fp, char* mimeType){
+  int total = 0;
+
+  if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
+    void* data = (void *)malloc(52);
+    bzero(data, 52);
+    while(fread(data, 1, 50, fp) != 0) {
+        total += send(sockfd, data, 50, 0);
+        bzero(data, 52);
+    }
+  }
+  else {
+    char data[52];
+    bzero(data, 52);
+    while(fgets(data, 50, fp) != NULL) {
+        total += send(sockfd, data, 50, 0);
+        bzero(data, 52);
+    }
+  }
+}
+
 char* getMimeType(char* route) {
     char* mimeType = (char *)malloc(20*sizeof(char));
     int endIndex = strlen(route);
@@ -483,10 +508,6 @@ int main()
                 while(stidx < strlen(urldata.route)){
                     if(urldata.route[stidx] == '/')
                         fs = stidx;
-                    // if(urldata.route[stidx] == '.'){
-                    //     fe = stidx;
-                    //     break;
-                    // }
                     stidx++;
                 }
                 char recv_file_name[512]; 
@@ -510,10 +531,10 @@ int main()
             }
             else {
                 // if content-type is text/html, show it in browser. if text/* print in terminalk. else ignore.
-                printf("kuch toh error hai\n");
+                char *err_res = receive_chunks(connection_socket);
+                printf("Error Message: %s\n", err_res);
             }
             
-            sleep(5);
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
@@ -627,6 +648,7 @@ int main()
             requestBuf[totalSize] = '\0';
 
             send_chunks(connection_socket, requestBuf);
+            send_file(connection_socket, fp, reqHeader.Accept);
 
             char *responseResult;
             responseResult = receive_chunks(connection_socket);
