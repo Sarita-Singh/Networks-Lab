@@ -314,8 +314,7 @@ int main()
 
         RequestHeaders reqHeaders;
 
-        // first receive in a while loop till empty line
-        // keep receiving each line of header
+
         result = receive_chunks(newsockfd);
         // char *headerLine = (char *)malloc((strlen(result)+1)*sizeof(char));
         // memset(&headerLine, '\0', sizeof(headerLine));
@@ -354,7 +353,7 @@ int main()
         for(int i = 0; i < size; i++) responseBuf[i] = '\0';
 
         char filename[512];
-        strcpy(filename, reqHeaders.url + 1);
+        strcpy(filename, reqHeaders.url);
         size_t filesize;
         struct stat s = {0};
 

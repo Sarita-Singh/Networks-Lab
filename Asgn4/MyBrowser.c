@@ -6,6 +6,9 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
 #include <time.h>
 
 #define INITIAL_SIZE 1024
@@ -288,10 +291,9 @@ char *receive_chunks(int sockfd)
     return result;
 }
 
-void write_file(int sockfd, char* mimeType){
-  int n;
+void write_file(int sockfd, char* mimeType, char *filename){
+  int n=0;
   FILE *fp;
-  char *filename = "recv.txt";
   printf("mime: %s\n", mimeType);
   if(strcmp(mimeType, "  application/pdf") == 0 || strcmp(mimeType, "  image/jpeg") == 0) {
     printf("binary\n");
@@ -299,6 +301,7 @@ void write_file(int sockfd, char* mimeType){
     fp = fopen(filename, "wb");
 
     while (1) {
+        memset(buffer, '\0', 52);
         n = recv(sockfd, buffer, 50, 0);
         if (n <= 0){
             break;
@@ -311,16 +314,18 @@ void write_file(int sockfd, char* mimeType){
     printf("text\n");
     char* buffer = (char *)malloc(52);
     fp = fopen(filename, "w");
-
+    printf("\nfile openeed : %s\n", filename);
     while (1) {
+        memset(buffer, '\0', 52);
         n = recv(sockfd, buffer, 50, 0);
+        // printf("\n n= %d %s\n", n, buffer);
+        fprintf(fp, "%s", buffer);
+        if(buffer[n-1] == EOF) break;
         if (n <= 0){
             break;
         }
-        fprintf(fp, "%s", buffer);
     }
   }
-
   fclose(fp);
   return;
 }
@@ -474,19 +479,160 @@ int main()
 
             if(resHeaders.statusCode == OK) {
                 // read file and save to disk and open using an app.
-                write_file(connection_socket, resHeaders.Content_Type);
+                printf("%s", urldata.route);
+                
+                int stidx = 0, fs = 0, fe =0;
+                while(stidx < strlen(urldata.route)){
+                    if(urldata.route[stidx] == '/')
+                        fs = stidx;
+                    // if(urldata.route[stidx] == '.'){
+                    //     fe = stidx;
+                    //     break;
+                    // }
+                    stidx++;
+                }
+                char recv_file_name[512]; 
+                memset(recv_file_name, '\0', 512);
+                strcpy(recv_file_name, "copy");
+                strcat(recv_file_name, urldata.route+fs);
+                printf("file name %s\n", recv_file_name);
+
+                write_file(connection_socket, resHeaders.Content_Type, recv_file_name);
+                char *cmdarg[3];
+                char *opcmd = "xdg-open";
+                cmdarg[0] = opcmd;
+                cmdarg[1] = recv_file_name;
+                cmdarg[2] = NULL;
+
+                int pid = fork();
+                if (pid == 0){
+                    int status_code = execvp(cmdarg[0], cmdarg);
+                    if (status_code == -1) {
+                        printf("File did not open\n");
+                    }
+                }
             }
             else {
                 // if content-type is text/html, show it in browser. if text/* print in terminalk. else ignore.
                 printf("kuch toh error hai\n");
             }
-
+            
+            sleep(5);
             close(connection_socket);
         }
         else if (strcmp(cmd[0], "PUT") == 0)
         {
             // do nothin;
             printf("\nip %s fname %s", cmd[1], cmd[2]);
+            URLData urldata = parseURL(cmd[1]);
+
+            char filename[512];
+            strcpy(filename, cmd[2]);
+            size_t filesize;
+            struct stat s = {0};
+
+            if (!(stat(filename, &s)))
+            {
+                if (ENOENT == errno)
+                // file does not exist
+                printf("\nCould not open file\n");
+            }
+            filesize = s.st_size;
+            FILE *fp;
+            fp = fopen(filename, "r");
+            if (fp == NULL) {
+                perror("Error in reading file.");
+                exit(1);
+            }
+            int fd = fileno(fp);
+            // creating a socket
+            if((connection_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            {
+                perror("Error in creating socket\n");
+                exit(0);
+            }
+
+            server_address.sin_family = AF_INET;
+            server_address.sin_port = htons(urldata.port); 
+            inet_aton(urldata.ip, &server_address.sin_addr);
+
+            // creating connection with server at specified address
+            if( connect(connection_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
+            {
+                perror("\n Error in connecting to server \n");
+                exit(0);
+            }
+            RequestHeaders reqHeader;
+            memset(reqHeader.url,'\0', 512);
+            memset(reqHeader.Host,'\0', 50);
+            memset(reqHeader.Connection,'\0', 15);
+            memset(reqHeader.Content_Language,'\0', 20);
+            memset(reqHeader.Content_Type,'\0', 20);
+
+            strcpy(reqHeader.url, urldata.route);
+            strcpy(reqHeader.Host, urldata.ip);
+            strcpy(reqHeader.Connection, "close");
+            strcpy(reqHeader.Content_Language, "en-us");
+            char *contentType = getMimeType(cmd[2]);
+            strcpy(reqHeader.Content_Type, contentType);
+            reqHeader.Content_Length = filesize;
+
+            time_t now = time(0);
+            struct tm tm = *gmtime(&now);
+            strftime(reqHeader.Date, sizeof(reqHeader.Date), "%a, %d %b %Y %H:%M:%S %Z", &tm);
+
+            time_t modifyTime = now - 2*86400;
+            struct tm tmModify = *gmtime(&modifyTime);
+            strftime(reqHeader.If_Modified_Since, sizeof(reqHeader.If_Modified_Since), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
+
+            char buf_data[100];
+            int size = INITIAL_SIZE;
+            int totalSize = 0;
+            char *requestBuf = (char *)malloc(size * sizeof(char));
+            for(int i = 0; i < size; i++) requestBuf[i] = '\0';
+
+            sprintf(buf_data, "PUT %s HTTP/1.1\r\n", urldata.route);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Host: %s\r\n", reqHeader.Host);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Connection: %s\r\n", reqHeader.Connection);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Date: %s\r\n", reqHeader.Date);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Content-Language: %s\r\n", reqHeader.Content_Language);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Content-Length: %u\r\n", reqHeader.Content_Length);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "Content-Type: %s\r\n", reqHeader.Content_Type);
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+
+            sprintf(buf_data, "\r\n");
+            // printf("%s\n", buf_data);
+            strcat(requestBuf, buf_data);
+            totalSize += strlen(buf_data);
+            requestBuf[totalSize] = '\0';
+
+            // send_chunks(connection_socket, requestBuf);
         }
     }
     return 0;
