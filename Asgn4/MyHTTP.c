@@ -248,8 +248,12 @@ void write_file(int sockfd, char* mimeType, char *filename, unsigned int size){
   if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
     void* buffer = (void *)malloc(52);
     fp = fopen(filename, "wb+");
+    if (fp == NULL) {
+        perror("Error in reading file.");
+        return;
+    }
     while (1) {
-        memset(buffer, '\0', 52);
+        bzero(buffer, 52);
         n = recv(sockfd, buffer, 50, 0);
         total += n;
         fwrite(buffer, 1, n, fp);
@@ -261,6 +265,10 @@ void write_file(int sockfd, char* mimeType, char *filename, unsigned int size){
   else {
     char* buffer = (char *)malloc(52);
     fp = fopen(filename, "w+");
+    if (fp == NULL) {
+        perror("Error in reading file.");
+        return;
+    }
     while (1) {
         memset(buffer, '\0', 52);
         n = recv(sockfd, buffer, 50, 0);

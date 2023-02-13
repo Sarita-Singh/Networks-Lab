@@ -103,8 +103,10 @@ URLData parseURL(char* URL) {
     while(URL[endIndex] != ':' && URL[endIndex] != '/' && URL[endIndex] != '\0') endIndex++;
     strncpy(data.ip, URL + startIndex, endIndex - startIndex);
     data.ip[endIndex - startIndex] = '\0';
+
     // no port or route provided
     if(URL[endIndex] == '\0') {
+        strcat(data.route, "/");
         data.port = PORT;
         return data;
     }
