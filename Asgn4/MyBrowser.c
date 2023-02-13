@@ -549,6 +549,7 @@ int main()
         else if (strcmp(cmd[0], "PUT") == 0)
         {
             URLData urldata = parseURL(cmd[1]);
+            strcat(urldata.route, cmd[2]);
 
             char filename[512];
             strcpy(filename, cmd[2]);

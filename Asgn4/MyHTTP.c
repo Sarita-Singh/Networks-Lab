@@ -241,23 +241,21 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
 }
 
-void write_file(int sockfd, char* mimeType, char *filename){
-  int n=0;
+void write_file(int sockfd, char* mimeType, char *filename, unsigned int size){
+  int n=0, total = 0;
   FILE *fp;
-  if(strcmp(mimeType, "application/pdf") == 0) strcat(filename, ".pdf");
-  else if(strcmp(mimeType, "image/jpeg") == 0) strcat(filename, ".jpg");
-  else strcat(filename, ".txt");
+  
   if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
     void* buffer = (void *)malloc(52);
     fp = fopen(filename, "wb+");
-
     while (1) {
         memset(buffer, '\0', 52);
         n = recv(sockfd, buffer, 50, 0);
-        if (n <= 0){
+        total += n;
+        fwrite(buffer, 1, n, fp);
+        if (n <= 0 || total >= size){
             break;
         }
-        fwrite(buffer, 1, n, fp);
     }
   }
   else {
@@ -266,9 +264,10 @@ void write_file(int sockfd, char* mimeType, char *filename){
     while (1) {
         memset(buffer, '\0', 52);
         n = recv(sockfd, buffer, 50, 0);
+        total += n;
         fprintf(fp, "%s", buffer);
-        if(buffer[n-1] == EOF) break;
-        if (n <= 0){
+        if(buffer[n-1] == '\0') break;
+        if (n <= 0 || total >= size){
             break;
         }
     }
@@ -369,12 +368,12 @@ int main()
         char filename[512];
         memset(filename, '\0', 512);
         if(reqHeaders.type == PUT) strcat(filename, "server-"); // for debugging
-        else strcat(filename, reqHeaders.url);
+        strcat(filename, reqHeaders.url+1);
         size_t filesize;
 
         // receive and write to file for PUT
         if(reqHeaders.type == PUT) {
-            write_file(newsockfd, reqHeaders.Content_Type, filename);
+            write_file(newsockfd, reqHeaders.Content_Type, filename, reqHeaders.Content_Length);
         }
 
         // get filesize incase of GET
