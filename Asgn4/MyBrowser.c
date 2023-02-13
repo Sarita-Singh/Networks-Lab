@@ -278,7 +278,7 @@ char *receive_chunks(int sockfd)
         if (n < 0)
         {
             perror("Unable to read from socket");
-            exit(1);
+            return;
         }
         // if (n == 0)
         // {
@@ -413,7 +413,7 @@ int main()
             if((connection_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             {
                 perror("Error in creating socket\n");
-                exit(0);
+                continue;
             }
 
             server_address.sin_family = AF_INET;
@@ -424,7 +424,7 @@ int main()
             if( connect(connection_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
             {
                 perror("\n Error in connecting to server \n");
-                exit(0);
+                continue;
             }
 
             RequestHeaders reqHeader;
@@ -569,14 +569,14 @@ int main()
             fp = fopen(filename, "r");
             if (fp == NULL) {
                 perror("Error in reading file.");
-                exit(1);
+                continue;
             }
             int fd = fileno(fp);
             // creating a socket
             if((connection_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             {
                 perror("Error in creating socket\n");
-                exit(0);
+                continue;
             }
 
             server_address.sin_family = AF_INET;
@@ -587,7 +587,7 @@ int main()
             if( connect(connection_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
             {
                 perror("\n Error in connecting to server \n");
-                exit(0);
+                continue;
             }
             RequestHeaders reqHeader;
             memset(reqHeader.url,'\0', 512);

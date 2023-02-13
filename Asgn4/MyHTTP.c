@@ -293,7 +293,6 @@ int main()
     if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         perror("\nError in creating socket\n");
-        exit(0);
     }
     
     struct sockaddr_in server_address, client_address;
@@ -334,7 +333,7 @@ int main()
         if ((newsockfd = accept(server_socket, (struct sockaddr *)&client_address, &clilen)) < 0)
         {
             perror("\nError in accept\n");
-            exit(0);
+            continue;
         }
 
         char *clientIP = inet_ntoa(client_address.sin_addr);
