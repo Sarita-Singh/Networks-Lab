@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <sys/poll.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -494,6 +495,14 @@ int main()
             send_chunks(connection_socket, requestBuf);
 
             char *responseResult;
+            struct pollfd fds[1];
+            fds[0].fd = connection_socket;
+            fds[0].events = POLLIN;
+            int ret = poll(fds, 1, 3000);
+            if(ret == 0){
+                printf("\nTimeout\n");
+                continue;
+            }
             responseResult = receive_chunks(connection_socket);
             printf("\n%s\n", responseResult);
             
