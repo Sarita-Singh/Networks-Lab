@@ -122,7 +122,7 @@ URLData parseURL(char* URL) {
         // no route provided
         if(URL[endIndex] == '\0') return data;
 
-        startIndex = ++endIndex;
+        startIndex = endIndex++;
         while(URL[endIndex] != '\0') endIndex++;
         strncpy(data.route, URL + startIndex, endIndex - startIndex);
         data.route[endIndex - startIndex] = '\0';
