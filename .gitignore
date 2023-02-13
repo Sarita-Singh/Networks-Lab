@@ -1,8 +1,8 @@
 *.pdf
 *.txt
+*.jpg
 browser
 http
-AccessLog.txt
 .vscode
 client
 server
