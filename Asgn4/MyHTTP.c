@@ -89,10 +89,8 @@ char *receive_chunks(int sockfd)
 void send_chunks(int new_socket, char *result)
 {
     char buffersend[52];
-    int res_len = strlen(result);
-    result[res_len] = '\0';
     int count = 0;
-    res_len++;
+    int res_len = strlen(result)+1;
     for (int i = 0; i < res_len; i += 50)
     {
         count = 0;
@@ -110,10 +108,7 @@ void send_chunks(int new_socket, char *result)
 void send_file(int sockfd, FILE *fp, char* mimeType){
   int total = 0;
 
-  printf("mime: %s\n", mimeType);
-
-  if(strcmp(mimeType, " application/pdf") == 0 || strcmp(mimeType, " image/jpeg") == 0) {
-    printf("binary\n");
+  if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
     void* data = (void *)malloc(52);
     bzero(data, 52);
     while(fread(data, 1, 50, fp) != 0) {
@@ -122,7 +117,6 @@ void send_file(int sockfd, FILE *fp, char* mimeType){
     }
   }
   else {
-    printf("text\n");
     char data[52];
     bzero(data, 52);
     while(fgets(data, 50, fp) != NULL) {
@@ -130,8 +124,6 @@ void send_file(int sockfd, FILE *fp, char* mimeType){
         bzero(data, 52);
     }
   }
-
-  printf("send: %d\n", total);
 }
 
 void parseRequestHeaders(char *buffer, RequestHeaders* header) {
@@ -176,56 +168,56 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     startIndex = currIndex;
 
     int colonIndex;
-    while(buffer[currIndex] != '\0') {
+    while(!(buffer[currIndex] == '\n' && buffer[currIndex+1] == '\r' && buffer[currIndex+2] == '\n')) {
         if(buffer[currIndex] == ':' && buffer[currIndex+1] == ' ') colonIndex = currIndex;
         if(buffer[currIndex] == '\r') {
 
             if(currIndex == startIndex) break;
             if(strncmp(buffer + startIndex, "Host", colonIndex - startIndex) == 0) {
                 memset(header->Host, '\0', 50);
-                strncpy(header->Host, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Host[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Host, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Host[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Connection", colonIndex - startIndex) == 0) {
                 memset(header->Connection, '\0', 15);
-                strncpy(header->Connection, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Connection[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Connection, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Connection[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Date", colonIndex - startIndex) == 0) {
                 memset(header->Date, '\0', 30);
-                strncpy(header->Date, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Date[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Date, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Date[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Accept", colonIndex - startIndex) == 0) {
                 memset(header->Accept, '\0', 20);
-                strncpy(header->Accept, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Accept[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Accept, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Accept[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Accept-Language", colonIndex - startIndex) == 0) {
                 memset(header->Accept_Language, '\0', 20);
-                strncpy(header->Accept_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Accept_Language[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Accept_Language, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Accept_Language[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "If-Modified-Since", colonIndex - startIndex) == 0) {
                 memset(header->If_Modified_Since, '\0', 30);
-                strncpy(header->If_Modified_Since, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->If_Modified_Since[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->If_Modified_Since, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->If_Modified_Since[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Content-Language", colonIndex - startIndex) == 0) {
                 memset(header->Content_Language, '\0', 20);
-                strncpy(header->Content_Language, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Content_Language[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Content_Language, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Content_Language[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Content-Type", colonIndex - startIndex) == 0) {
                 memset(header->Content_Type, '\0', 20);
-                strncpy(header->Content_Type, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                header->Content_Type[currIndex - colonIndex - 1] = '\0';
+                strncpy(header->Content_Type, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                header->Content_Type[currIndex - colonIndex - 2] = '\0';
             }
             else if(strncmp(buffer + startIndex, "Content-Length", colonIndex - startIndex) == 0) {
                 char lengthBuf[20];
                 memset(lengthBuf, '\0', 20);
-                strncpy(lengthBuf, buffer + colonIndex + 1, currIndex - colonIndex - 1);
-                lengthBuf[currIndex - colonIndex - 1] = '\0';
+                strncpy(lengthBuf, buffer + colonIndex + 2, currIndex - colonIndex - 2);
+                lengthBuf[currIndex - colonIndex - 2] = '\0';
                 header->Content_Length = atoi(lengthBuf);
             }
             currIndex++;
@@ -233,6 +225,8 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
         }
         currIndex++;
     }
+    currIndex += 3;
+    buffer += currIndex;
 
     if(header->type == GET) {
         if(!(strlen(header->Host) && strlen(header->Connection) && strlen(header->Date) && strlen(header->Accept) && strlen(header->Accept_Language) && strlen(header->If_Modified_Since)))
@@ -249,6 +243,39 @@ void parseRequestHeaders(char *buffer, RequestHeaders* header) {
     }
 }
 
+void write_file(int sockfd, char* mimeType, char *filename){
+  int n=0;
+  FILE *fp;
+  if(strcmp(mimeType, "application/pdf") == 0 || strcmp(mimeType, "image/jpeg") == 0) {
+    void* buffer = (void *)malloc(52);
+    fp = fopen(filename, "wb+");
+
+    while (1) {
+        memset(buffer, '\0', 52);
+        n = recv(sockfd, buffer, 50, 0);
+        if (n <= 0){
+            break;
+        }
+        fwrite(buffer, 1, n, fp);
+    }
+  }
+  else {
+    char* buffer = (char *)malloc(52);
+    fp = fopen(filename, "w+");
+    while (1) {
+        memset(buffer, '\0', 52);
+        n = recv(sockfd, buffer, 50, 0);
+        fprintf(fp, "%s", buffer);
+        if(buffer[n-1] == EOF) break;
+        if (n <= 0){
+            break;
+        }
+    }
+  }
+  fclose(fp);
+  return;
+}
+
 
 int main()
 {
@@ -260,7 +287,7 @@ int main()
         perror("\nError in creating socket\n");
         exit(0);
     }
-    printf("\nSocket created\n");
+    
     struct sockaddr_in server_address, client_address;
 
     server_address.sin_family = AF_INET;
@@ -274,7 +301,7 @@ int main()
         perror("\nError in binding\n");
         exit(0);
     }
-    printf("\nBind done\n");
+    
     // Up to 5 concurrent client requests will be queued up while the system is
     // executing the accept system call
     error_check = listen(server_socket, 5);
@@ -283,16 +310,13 @@ int main()
         perror("\nError in listening\n");
         exit(0);
     }
-    printf("\nServer listening at port:%d\n", PORT);
+    
     char buf[50]; // buffer used for communication
     char username[50];
     memset(&buf, '\0', sizeof(buf));
     memset(&username, '\0', sizeof(username));
 
     int i, newsockfd;
-
-    // open the file AccessLog.txt
-    FILE *filePointer;
 
     while (1)
     {
@@ -304,34 +328,30 @@ int main()
             perror("\nError in accept\n");
             exit(0);
         }
-        filePointer = fopen("AccessLog.txt", "aw");
+
         char *clientIP = inet_ntoa(client_address.sin_addr);
         int clientPORT = ntohs(client_address.sin_port);
-        // printf("%s:%d\n", clientIP, clientPORT);
-        printf("\nClient connected\n");
+        
         char *result;
         int cnt = 0;
 
-        RequestHeaders reqHeaders;
-
-
         result = receive_chunks(newsockfd);
-        // char *headerLine = (char *)malloc((strlen(result)+1)*sizeof(char));
-        // memset(&headerLine, '\0', sizeof(headerLine));
-        // strcpy(headerLine, result);
+        printf("\n%s\n", result);
+        
+        // parse the headerline to get data
+        RequestHeaders reqHeaders;
         parseRequestHeaders(result, &reqHeaders);
 
-        // parse the headerline to get data
-        // get time, client ip, port
+        // write to AccessLog.txt
+        FILE *filePointer;
+        filePointer = fopen("AccessLog.txt", "aw");
         time_t t;
         t = time(NULL);
         struct tm tm = *localtime(&t);
         fprintf(filePointer, "%d-%d-%d:%d:%d:%d:%s:%d:%s:%s\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, clientIP, clientPORT, reqHeaders.type == GET ? "GET" : "PUT", reqHeaders.url);
-        
-
-        // then receive the body if command was 'PUT'
         fclose(filePointer);
 
+        // Prepare response headers
         ResponseHeaders resHeaders;
         memset(resHeaders.Cache_Control, '\0', 15);
         memset(resHeaders.Content_Language, '\0', 20);
@@ -344,7 +364,36 @@ int main()
         time_t ExpireTime = time(0) + 3*86400;
         struct tm tmExpire = *gmtime(&ExpireTime);
         strftime(resHeaders.Expires, sizeof(resHeaders.Expires), "%a, %d %b %Y %H:%M:%S %Z", &tmExpire);
-        strcpy(resHeaders.Last_Modified, resHeaders.Expires);
+
+        //get filename
+        char filename[512];
+        memset(filename, '\0', 512);
+        if(reqHeaders.type == PUT) strcat(filename, "server-"); // for debugging
+        strcat(filename, reqHeaders.url+1);
+        size_t filesize;
+
+        // receive and write to file for PUT
+        if(reqHeaders.type == PUT) {
+            write_file(newsockfd, reqHeaders.Content_Type, filename);
+        }
+
+        // get filesize incase of GET
+        if(reqHeaders.type == GET) {
+            struct stat s = {0};
+
+            if (!(stat(filename, &s)))
+            {
+                if (ENOENT == errno)
+                // file does not exist
+                resHeaders.statusCode = NOT_FOUND;
+            }
+            else {
+                filesize = s.st_size;
+
+                struct tm tmModify = *gmtime(&(s.st_mtim));
+                strftime(resHeaders.Last_Modified, sizeof(resHeaders.Last_Modified), "%a, %d %b %Y %H:%M:%S %Z", &tmModify);
+            }
+        }
 
         char buf_data[100];
         int size = INITIAL_SIZE;
@@ -352,34 +401,15 @@ int main()
         char *responseBuf = (char *)malloc(size * sizeof(char));
         for(int i = 0; i < size; i++) responseBuf[i] = '\0';
 
-        char filename[512];
-        strcpy(filename, reqHeaders.url);
-        size_t filesize;
-        struct stat s = {0};
 
-        if (!(stat(filename, &s)))
-        {
-            if (ENOENT == errno)
-            // file does not exist
-            resHeaders.statusCode = NOT_FOUND;
-        }
-        filesize = s.st_size;
-        FILE *fp;
-        fp = strcmp(reqHeaders.Accept, "  application/pdf") == 0 || strcmp(reqHeaders.Accept, "  image/jpeg") == 0 ? fopen(filename, "rb") : fopen(filename, "r");
-        if (fp == NULL) {
-            perror("Error in reading file.");
-            exit(1);
-        }
-        int fd = fileno(fp);
         if(!reqHeaders.isValid) {
             // Send 400
             resHeaders.statusCode = BAD_REQUEST;
 
             char content[100];
-            memset(content, '\0', 100);
-            strcpy(content,"<p>Bad request send. Please check your request headers.</p>\r\n");
+            sprintf(content,"Bad Request\r\n");
             resHeaders.Content_Length = strlen(content);
-            strcpy(resHeaders.Content_Type, "text/html");
+            strcpy(resHeaders.Content_Type, "text/*");
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "BAD REQUEST");
             strcat(responseBuf, buf_data);
@@ -415,16 +445,25 @@ int main()
 
             strcat(responseBuf, content);
             totalSize += strlen(content);             
-            // responseBuf[totalSize] = '\0';
-            printf("\n%s\n", responseBuf);
+            responseBuf[totalSize] = '\0';
             send_chunks(newsockfd, responseBuf);
         }
         else {
             // Send 200
             resHeaders.statusCode = OK;
-            memset(resHeaders.Content_Type, '\0', 20);
-            strcpy(resHeaders.Content_Type, reqHeaders.Accept);
-            resHeaders.Content_Length = (unsigned int)filesize;
+
+            char content[100]; // for PUT
+
+            if(reqHeaders.type == GET) {
+                memset(resHeaders.Content_Type, '\0', 20);
+                strcpy(resHeaders.Content_Type, reqHeaders.Accept);
+                resHeaders.Content_Length = (unsigned int)filesize;
+            }
+            else {
+                sprintf(content,"Success\r\n");
+                resHeaders.Content_Length = strlen(content);
+                strcpy(resHeaders.Content_Type, "text/*");
+            }
 
             sprintf(buf_data, "HTTP/1.1 %d %s\r\n", resHeaders.statusCode, "OK");
             strcat(responseBuf, buf_data);
@@ -459,12 +498,25 @@ int main()
             totalSize += strlen(buf_data); 
             responseBuf[totalSize] = '\0';
 
-            printf("\n%s\n", responseBuf);
-            send_chunks(newsockfd, responseBuf);
-            printf("\nresponse sent\n");
+            if(reqHeaders.type == PUT) {
+                strcat(responseBuf, content);
+                totalSize += strlen(content);             
+                responseBuf[totalSize] = '\0';
+            }
 
-            //now send file
-            send_file(newsockfd, fp, resHeaders.Content_Type);
+            send_chunks(newsockfd, responseBuf);
+
+            if(reqHeaders.type == GET) {
+                //open file in appropriate format
+                FILE *fp;
+                fp = strcmp(reqHeaders.Accept, "application/pdf") == 0 || strcmp(reqHeaders.Accept, "image/jpeg") == 0 ? fopen(filename, "rb") : fopen(filename, "r");
+                if (fp == NULL) {
+                    perror("Error in reading file.");
+                }
+
+                //now send file
+                send_file(newsockfd, fp, reqHeaders.Accept);
+            }
         }
 
         close(newsockfd);
