@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <string.h>
 
-int main()
+int main(int argc, char **argv)
 {
     int connection_socket;
     struct sockaddr_in server_address; 
@@ -23,11 +23,16 @@ int main()
     {
         perror("Error in creating socket\n");
         exit(0);
-    } 
+    }
+
+    char address[16];
+
+    if(argc >= 2) strcpy(address, argv[1]);
+    else sprintf(address, "127.0.0.1");
     
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(20000); 
-    inet_aton("127.0.0.1", &server_address.sin_addr);
+    inet_aton(address, &server_address.sin_addr);
 
     // creating connection with server at specified address
     if( connect(connection_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
