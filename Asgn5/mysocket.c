@@ -1,16 +1,35 @@
 #include "mysocket.h"
 #include "queue.h"
 #include <unistd.h>
+#include <sys/poll.h>
+#include <pthread.h>
 
 Queue Send_Message, Received_Message;
+int newsockfd;
 
 int my_socket(int domain, int type, int protocol) {
 
     if(protocol == SOCK_MyTCP) {
         initQueue(&Send_Message);
         initQueue(&Received_Message);
-
-        return socket(domain, type, SOCK_STREAM);
+        pthread_t R, S;
+        pthread_attr_t attr;
+        int sockfd = socket(domain, type, SOCK_STREAM);
+        newsockfd = sockfd;
+        // explicitly creating threads in a joinable state 
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+        if ((pthread_create(&S, &attr, send_msg, &sockfd)))
+        {
+            perror("pthread_create\n");
+            exit(0);
+        }
+        if ((pthread_create(&R, &attr, recv_msg, &sockfd)))
+        {
+            perror("pthread_create\n");
+            exit(0);
+        }
+        return sockfd;
     }
 
     return socket(domain, type, protocol);
@@ -25,7 +44,8 @@ int my_listen(int sockfd, int backlog) {
 }
 
 int my_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
-    return accept(sockfd, addr, addrlen);
+    newsockfd = accept(sockfd, addr, addrlen);
+    return newsockfd;
 }
 
 int my_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
@@ -62,8 +82,112 @@ ssize_t my_recv(int sockfd, void *buf, size_t len, int flags) {
     }
 }
 
+void *send_msg(void *arg) {
+    // thread S checks periodically if any msg is waiting to be sent
+    while (1) {
+        // check if receive queue has message waiting
+        while (!isQueueEmpty(&Send_Message)){
+            Message message = dequeue(&Send_Message);
+            char *buf = message.buf;
+            int newsockfd = message.sockfd;
+            send_chunks(newsockfd, buf);
+        }
+        sleep(2);
+    }
+}
+
+void *recv_msg(void *arg) {
+    // thread R waits on recv call and put the msg into Received_Message
+    int sockfd = *(int *)arg;
+    // struct pollfd fds[1];
+    // fds[0].fd = sockfd;
+    // fds[0].events = POLLIN;
+    char buf[1000];
+    memset(buf, '\0', ELE_SIZE);
+    while(1) {
+        // int ret = poll(fds, 1, 3000);
+        // if (ret == -1) {
+        //     perror("Poll\n");
+        // }
+        // else if(ret == 0) {
+        //     printf("Timeout\n");
+        // }
+        // else {
+            // receive using receive_chunks 
+            if (receive_chunks(newsockfd, buf, ELE_SIZE) < 0)
+            {
+                perror("\nError in receiving\n");
+                exit(0);
+            }
+            // nnow put the received message in Received_Message
+            Message message;
+            message.buf = (char *)malloc(sizeof(buf));
+            message.sockfd = sockfd;
+            strcpy(message.buf, buf);
+            message.len = strlen(buf);
+            // message.flags = flags;
+            enqueue(&Received_Message, message);
+            sleep(2);
+        // }
+    }
+
+}
+
+int receive_chunks(int sockfd, char *result, int size)
+{
+    int n, total = 0;
+    while (1)
+    {
+        char temp[1002];
+        memset(&temp, '\0', 1002);
+        n = recv(sockfd, temp, 1000, 0);
+        if (n < 0)
+        {
+            perror("Unable to read from socket");
+            return -1;
+        }
+        if (n == 0)
+        {
+            perror("Connection closed by client");
+            return -1;
+        }
+        total += n;
+        long long l = strlen(temp);
+        if (l + n > size)
+        {
+            size = l + n + 1;
+            result = (char *)realloc(result, size);
+        }
+        strcat(result, temp);
+        if (temp[n - 1] == '\0')
+            break;
+    }
+    return total;
+}
+
+void send_chunks(int new_socket, char *result)
+{
+    char buffersend[1002];
+    int res_len = strlen(result);
+    result[res_len] = '\0';
+    int count = 0;
+    res_len++;
+    for (int i = 0; i < res_len; i += 1000)
+    {
+        count = 0;
+        memset(&buffersend, '\0', 1002);
+        for (int j = 0; j < 1000 && i + j < res_len; j++)
+        {
+            count++;
+            buffersend[j] = result[i + j];
+        }
+        send(new_socket, buffersend, count, 0);
+    }
+}
+
 int my_close(int fd) {
     destroyQueue(&Send_Message);
     destroyQueue(&Received_Message);
+    pthread_exit(NULL);
     return close(fd);
 }

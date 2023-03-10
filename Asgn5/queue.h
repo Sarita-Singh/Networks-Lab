@@ -2,6 +2,7 @@
 #define _QUEUE_H
 
 #include <stdio.h>
+#include <string.h>
 
 // size of the queue
 #define SIZE 10
