@@ -1,5 +1,7 @@
 #include "mysocket.h"
 #include "queue.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/poll.h>
 #include <pthread.h>
@@ -9,26 +11,26 @@ int newsockfd;
 
 int my_socket(int domain, int type, int protocol) {
 
-    if(protocol == SOCK_MyTCP) {
-        initQueue(&Send_Message);
-        initQueue(&Received_Message);
-        pthread_t R, S;
-        pthread_attr_t attr;
-        int sockfd = socket(domain, type, SOCK_STREAM);
+    if(type == SOCK_MyTCP) {
+        // initQueue(&Send_Message);
+        // initQueue(&Received_Message);
+        // pthread_t R, S;
+        // pthread_attr_t attr;
+        int sockfd = socket(domain, SOCK_STREAM, protocol);
         newsockfd = sockfd;
         // explicitly creating threads in a joinable state 
-        pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-        if ((pthread_create(&S, &attr, send_msg, &sockfd)))
-        {
-            perror("pthread_create\n");
-            exit(0);
-        }
-        if ((pthread_create(&R, &attr, recv_msg, &sockfd)))
-        {
-            perror("pthread_create\n");
-            exit(0);
-        }
+        // pthread_attr_init(&attr);
+        // pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+        // if ((pthread_create(&S, &attr, send_msg, &sockfd)))
+        // {
+        //     perror("pthread_create\n");
+        //     exit(0);
+        // }
+        // if ((pthread_create(&R, &attr, recv_msg, &sockfd)))
+        // {
+        //     perror("pthread_create\n");
+        //     exit(0);
+        // }
         return sockfd;
     }
 
@@ -45,6 +47,7 @@ int my_listen(int sockfd, int backlog) {
 
 int my_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     newsockfd = accept(sockfd, addr, addrlen);
+    printf("[mysocket] new socket created : %d\n", newsockfd);
     return newsockfd;
 }
 
@@ -59,38 +62,48 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags) {
     strcpy(message.buf, buf);
     message.len = len;
     message.flags = flags;
-
+    printf("[mysocket] calling send chunks function\n");
+    send_chunks(sockfd, buf);
+    printf("[mysocket] sent the message over tcp\n");
+    return len;
     while(1) {
         if(isQueueFull(&Send_Message)) sleep(2);
         else {
             enqueue(&Send_Message, message);
-            return;
+            printf("[mysocket] message of len %d has been enqueued\n", len);
+            return len;
         }
     }
 }
 
 ssize_t my_recv(int sockfd, void *buf, size_t len, int flags) {
+    
     Message message;
     message.buf = (char *)malloc(ELE_SIZE);
-    while(1) {
-        if(isQueueEmpty(&Received_Message)) sleep(2);
-        else {
-            message = dequeue(&Received_Message);
-            buf = message.buf;
-            return message.len;
-        }
-    }
+    receive_chunks(sockfd, buf, len);
+    return len;
+    // while(1) {
+    //     if(isQueueEmpty(&Received_Message)) sleep(2);
+    //     else {
+    //         message = dequeue(&Received_Message);
+    //         buf = message.buf;
+    //         printf("\n[mysocket] dequeued the message of len %d", message.len);
+    //         return message.len;
+    //     }
+    // }
 }
 
 void *send_msg(void *arg) {
     // thread S checks periodically if any msg is waiting to be sent
     while (1) {
-        // check if receive queue has message waiting
+        // check if send queue has message waiting
         while (!isQueueEmpty(&Send_Message)){
             Message message = dequeue(&Send_Message);
             char *buf = message.buf;
             int newsockfd = message.sockfd;
+            printf("[mysocket] calling send chunks function\n");
             send_chunks(newsockfd, buf);
+            printf("[mysocket] thread S sent the message over tcp\n");
         }
         sleep(2);
     }
@@ -102,7 +115,7 @@ void *recv_msg(void *arg) {
     // struct pollfd fds[1];
     // fds[0].fd = sockfd;
     // fds[0].events = POLLIN;
-    char buf[1000];
+    char buf[5000];
     memset(buf, '\0', ELE_SIZE);
     while(1) {
         // int ret = poll(fds, 1, 3000);
@@ -110,7 +123,7 @@ void *recv_msg(void *arg) {
         //     perror("Poll\n");
         // }
         // else if(ret == 0) {
-        //     printf("Timeout\n");
+        //     printf("\n[mysocket] Timeout");
         // }
         // else {
             // receive using receive_chunks 
@@ -119,7 +132,7 @@ void *recv_msg(void *arg) {
                 perror("\nError in receiving\n");
                 exit(0);
             }
-            // nnow put the received message in Received_Message
+            // now put the received message in Received_Message
             Message message;
             message.buf = (char *)malloc(sizeof(buf));
             message.sockfd = sockfd;
@@ -127,6 +140,7 @@ void *recv_msg(void *arg) {
             message.len = strlen(buf);
             // message.flags = flags;
             enqueue(&Received_Message, message);
+            printf("[mysocket] thread R received the message over tcp\n");
             sleep(2);
         // }
     }
@@ -169,6 +183,7 @@ void send_chunks(int new_socket, char *result)
 {
     char buffersend[1002];
     int res_len = strlen(result);
+    printf("[mysocket] message size: %d\n", res_len);
     result[res_len] = '\0';
     int count = 0;
     res_len++;
@@ -186,8 +201,9 @@ void send_chunks(int new_socket, char *result)
 }
 
 int my_close(int fd) {
-    destroyQueue(&Send_Message);
-    destroyQueue(&Received_Message);
-    pthread_exit(NULL);
+    // destroyQueue(&Send_Message);
+    // destroyQueue(&Received_Message);
+    // pthread_exit(NULL);
+    printf("[mysocket] closing socket: %d\n", fd);
     return close(fd);
 }

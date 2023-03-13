@@ -29,16 +29,16 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags);
 ssize_t my_recv(int sockfd, void *buf, size_t len, int flags);
 
 // function for thread to send msg waiting in Send_Message queue
-void *send_msg(void *arg) 
+void *send_msg(void *arg); 
 
 // fucction for thread to wait on recv call and put the msg into Received_Message
-void *recv_msg(void *arg)
+void *recv_msg(void *arg);
 
 // function to receive msg using bufffer of maximum capacity 1000
-int receive_chunks(int sockfd, char *result, int size)
+int receive_chunks(int sockfd, char *result, int size);
 
 // function to send msg using bufffer of maximum capacity 1000
-void send_chunks(int new_socket, char *result)
+void send_chunks(int new_socket, char *result);
 
 // Wrapper to close system call.
 int my_close(int fd);

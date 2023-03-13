@@ -19,12 +19,12 @@ int main(int argc, char **argv)
     struct sockaddr_in server_address; 
 
     // creating a socket
-    if((connection_socket = my_socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if((connection_socket = my_socket(AF_INET, SOCK_MyTCP, 0)) < 0)
     {
         perror("Error in creating socket\n");
         exit(0);
     }
-
+    printf("[myclient] socket done %d\n", connection_socket);
     char address[16];
 
     if(argc >= 2) strcpy(address, argv[1]);
@@ -40,8 +40,9 @@ int main(int argc, char **argv)
        perror("\n Error in connecting to server \n");
        exit(0);
     } 
-
+    printf("[myclient] connect done\n");
     char buf_data[5000];
+    memset(&buf_data, '\0', 5000);
     int x = 0;
 
     // get data from the server and display it
@@ -49,7 +50,8 @@ int main(int argc, char **argv)
     {
         perror("\n Error in receiving \n");
     } 
-    printf("%s",buf_data);
+    printf("[myclient] recv done. size: %d\n", x);
+    //printf("\n%s\n",buf_data);
     printf("\nsize received: %d\n", strlen(buf_data));
 
     my_close(connection_socket);

@@ -9,10 +9,10 @@ library: mysocket.o queue.o
 	ar rcs $(LIBNAME) mysocket.o queue.o
 .PHONY: library
 
-mysocket.o: mysocket.h
+mysocket.o: mysocket.h mysocket.c
 	gcc $(FLAGS) -c mysocket.c
 
-mysocket.o:queue.h
+queue.o: queue.h queue.c
 	gcc $(FLAGS) -c queue.c
 
 install: library
