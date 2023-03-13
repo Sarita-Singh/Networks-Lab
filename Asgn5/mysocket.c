@@ -83,41 +83,39 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
     // send_chunks(sockfd, buf);
     // printf("[mysocket] sent the message over tcp\n");
 
-    while (1)
+    if (pthread_mutex_lock(&lock_send_msg))
     {
-        if (pthread_mutex_lock(&lock_send_msg))
-        {
-            perror("[mysocket] send queue lock failed\n");
-            exit(1);
-        }
-        else
-        {
-            printf("[mysocket] %d main thread locked the send msg queue\n", sockfd);
-        }
-        if (isQueueFull(&Send_Message))
-        {
-            printf("[mysocket] %d queue is full. Going to sleep...\n", sockfd);
-            sleep(2);
-        }
-        else
-        {
-            printf("[mysocket] %d Going to enqueue\n", sockfd);
-            enqueue(&Send_Message, message);
-            printf("[mysocket] %d message enqueued\n", sockfd);
-            printf("[mysocket] %d message of len %d has been enqueued\n", sockfd, message.len);
-            return len;
-        }
-        if (pthread_mutex_unlock(&lock_send_msg))
-        {
-            perror("[mysocket] send queue unlock failed\n");
-            exit(1);
-        }
-        else
-        {
-            printf("[mysocket] %d main thread unlocked the send msg queue\n", sockfd);
-        }
+        perror("[mysocket] send queue lock failed\n");
+        exit(1);
     }
-    pthread_exit(NULL);
+    else
+    {
+        printf("[mysocket] %d main thread locked the send msg queue\n", sockfd);
+    }
+    if (isQueueFull(&Send_Message))
+    {
+        printf("[mysocket] %d queue is full. Going to sleep...\n", sockfd);
+        sleep(2);
+    }
+    else
+    {
+        printf("[mysocket] %d Going to enqueue\n", sockfd);
+        enqueue(&Send_Message, message);
+        printf("[mysocket] %d message enqueued\n", sockfd);
+        printf("[mysocket] %d message of len %d has been enqueued\n", sockfd, message.len);
+    }
+    if (pthread_mutex_unlock(&lock_send_msg))
+    {
+        perror("[mysocket] send queue unlock failed\n");
+        exit(1);
+    }
+    else
+    {
+        printf("[mysocket] %d main thread unlocked the send msg queue\n", sockfd);
+    }
+    pthread_cond_signal(&S_cond);
+    //pthread_exit(NULL);
+    return len;
 }
 
 ssize_t my_recv(int sockfd, void *buf, size_t len, int flags)
@@ -149,17 +147,17 @@ void *send_msg(void *arg)
     while (1)
     {
         // check if send queue has message waiting
-        if (pthread_mutex_lock(&lock_send_msg))
-        {
-            perror("[mysocket] send queue lock failed\n");
-            exit(1);
-        }
-        else
-        {
-            printf("[mysocket] %d s thread locked the send msg queue\n", sockfd);
-        }
         if ((isClient == 0 && isAccepted == 1) || (isClient == 1 && isConnected == 1))
         {
+            if (pthread_mutex_lock(&lock_send_msg))
+            {
+                perror("[mysocket] send queue lock failed\n");
+                exit(1);
+            }
+            else
+            {
+                printf("[mysocket] %d s thread locked the send msg queue\n", sockfd);
+            }
             while (!isQueueEmpty(&Send_Message))
             {
                 Message message = dequeue(&Send_Message);
@@ -168,8 +166,8 @@ void *send_msg(void *arg)
                 strcpy(buf, message.buf);
                 int newsockfd = message.sockfd;
                 printf("[mysocket] %d buf: %s\n", newsockfd, message.buf);
-                printf("[mysocket] %d calling send chunks function\n");
-                send_chunks(newsockfd, buf);
+                printf("[mysocket] calling send chunks function\n");
+                send_chunks(newsockfd, message.buf);
                 printf("[mysocket] %d thread S sent the message over tcp\n", newsockfd);
             }
             if (pthread_mutex_unlock(&lock_send_msg))
@@ -181,18 +179,9 @@ void *send_msg(void *arg)
             {
                 printf("[mysocket] %d s thread unlocked the send msg queue\n", sockfd);
             }
-            printf("[mysocket] %d s thread going to sleep for 2s\n", sockfd);
-            sleep(2);
         }
-        else
-        {
-            // wait for some actions to be added to queue
-            while (!((isClient == 0 && isAccepted == 1) || (isClient == 1 && isConnected == 1)))
-            {
-                printf("[mysocket] Thread S going into wait ...\n");
-                pthread_cond_wait(&S_cond, &lock_send_msg);
-            }
-        }
+        printf("[mysocket] %d s thread going to sleep for 2s\n", sockfd);
+        sleep(2);
     }
     pthread_exit(NULL);
 }

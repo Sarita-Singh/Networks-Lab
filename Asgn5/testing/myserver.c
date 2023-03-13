@@ -61,7 +61,7 @@ int main()
 			exit(0);
 		}
 
-        printf("[myserver] accept done\n");
+        printf("[myserver] accept done %d\n", new_socket);
 
         my_send(new_socket, buf, strlen(buf)+1, 0);
         printf("[myserver] size send: %d\n", strlen(buf));

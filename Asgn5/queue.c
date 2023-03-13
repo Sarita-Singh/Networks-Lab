@@ -34,6 +34,10 @@ Message dequeue(Queue* queue)
     {
         Message element;
         element.buf = (char *)malloc(ELE_SIZE);
+        element.sockfd = queue->queue_arr[queue->front]->sockfd;
+        element.len = queue->queue_arr[queue->front]->len;
+        element.flags = queue->queue_arr[queue->front]->flags;
+        strcpy(element.buf, queue->queue_arr[queue->front]->buf);
         if(queue->front == queue->rear) {
             queue->front = -1;
             queue->rear = -1;
