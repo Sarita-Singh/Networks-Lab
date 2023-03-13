@@ -2,7 +2,7 @@ CC=gcc
 LIBDIR = /usr/local/lib
 INCLUDEDIR = /usr/include
 FLAGS = -Wall -I.
-OBJFILES = mysocket.o
+OBJFILES = mysocket.o queue.o
 LIBNAME = libmsocket.a
 
 library: mysocket.o queue.o
