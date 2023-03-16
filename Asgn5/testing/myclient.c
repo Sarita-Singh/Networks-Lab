@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     } 
     D printf("[myclient] recv done. size: %d\n", x);
     //printf("\n%s\n",buf_data);
-    printf("\nsize received: %d\n", strlen(buf_data));
+    printf("\nsize received: %d\n%s\n", strlen(buf_data), buf_data);
 
     my_close(connection_socket);
     

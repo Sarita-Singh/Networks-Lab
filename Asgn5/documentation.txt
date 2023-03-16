@@ -53,9 +53,9 @@ Documentation for Networks lab Assignment-5 on message-oriented TCP
 
     - Checks the socket type. If normal socket, use send() directly. Else proceed as follows.
     - message variable of type Message initialized with given message to send.
-    - sleeps repeatedly till the Send_Message queue has space to enqueue. isQueueFull is called.
+    - sleeps repeatedly untill the Send_Message queue does not has space to enqueue. isQueueFull is called.
     - waits to lock the Send_Message queue for changes. pthread_mutex_lock is called.
-    - enqueue the message in Send_Message queue.
+    - thread enqueues the message in Send_Message queue.
     - unlock the queue. pthread_mutex_unlock is called.
 
 
@@ -63,7 +63,26 @@ Documentation for Networks lab Assignment-5 on message-oriented TCP
 
     - Checks the socket type. If normal socket, use recv() directly. Else proceed as follows.
     - message variable of type Message declared to store the message dequeued.
-    - sleeps repeatedly till the Received_Message queue has any message. isQueueEmpty is called.
+    - sleeps repeatedly untill the Received_Message queue is empty. isQueueEmpty is called.
     - waits to lock the Recv_Message queue for changes. pthread_mutex_lock is called.
     - dequeue the message from Received_Message queue.
     - unlock the queue. pthread_mutex_unlock is called.
+
+
+-- What happens in function recv_msg
+
+    - thread R waits on the recv_chunks call to receive the chunks of data which comes in and forms the message using buffer of maximum capacity 1000
+    - sleeps repeatedly untill the Received_Message queue is full. isQueueFull is called.
+    - waits to lock the Recv_Message queue for changes. pthread_mutex_lock is called.
+    - enqueues the received message into the Received_Message queue.
+    - unlock the queue. pthread_mutex_unlock is called.
+
+
+-- What happens in function send_msg
+
+    - thread periodically wakes up every 2 sec
+    - thread locks the Send_Message queue for changes. pthread_mutex_lock is called.
+    - dequeues the message waiting in the Send_Message queue.
+    - unlock the queue. pthread_mutex_unlock is called.
+    - sends the dequeued message using send_chunks call using buffer of maximum capacity 1000
+    - threads sleeps for 2 sec
