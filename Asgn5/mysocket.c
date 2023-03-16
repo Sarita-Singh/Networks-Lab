@@ -128,37 +128,38 @@ ssize_t my_recv(int sockfd, void *buf, size_t len, int flags)
     {
         Message message;
         message.buf = (char *)malloc(ELE_SIZE);
-        while (1)
+        
+        while (isQueueEmpty(&Received_Message))
         {
-            while (isQueueEmpty(&Received_Message))
-            {
-                printf("[mysocket] %d no message. going to sleep", sockfd);
-                sleep(2);
-            }
-
-            if (pthread_mutex_lock(&lock_recv_msg))
-            {
-                perror("[mysocket] recv queue lock failed\n");
-                exit(1);
-            }
-            else
-            {
-                printf("[mysocket] %d receive thread locked the recv msg queue\n", sockfd);
-            }
-            message = dequeue(&Received_Message);
-            if (pthread_mutex_unlock(&lock_recv_msg))
-            {
-                perror("[mysocket] recv queue unlock failed\n");
-                exit(1);
-            }
-            else
-            {
-                printf("[mysocket] %d receive thread unlocked the recv msg queue\n", sockfd);
-            }
-            strncpy(buf, message.buf, len);
-            printf("[mysocket] dequeued the message of len %d\n", message.len);
-            return message.len;
+            printf("[mysocket] %d no message. going to sleep", sockfd);
+            sleep(2);
         }
+
+        if (pthread_mutex_lock(&lock_recv_msg))
+        {
+            perror("[mysocket] recv queue lock failed\n");
+            exit(1);
+        }
+        else
+        {
+            printf("[mysocket] %d receive thread locked the recv msg queue\n", sockfd);
+        }
+
+        message = dequeue(&Received_Message);
+
+        if (pthread_mutex_unlock(&lock_recv_msg))
+        {
+            perror("[mysocket] recv queue unlock failed\n");
+            exit(1);
+        }
+        else
+        {
+            printf("[mysocket] %d receive thread unlocked the recv msg queue\n", sockfd);
+        }
+        
+        strncpy(buf, message.buf, len);
+        printf("[mysocket] dequeued the message of len %d\n", message.len);
+        return message.len;
     }
     else
         return recv(sockfd, buf, len, flags);
