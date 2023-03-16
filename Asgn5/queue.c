@@ -34,7 +34,6 @@ Message dequeue(Queue* queue)
     {
         Message element;
         element.buf = (char *)malloc(ELE_SIZE);
-        element.sockfd = queue->queue_arr[queue->front]->sockfd;
         element.len = queue->queue_arr[queue->front]->len;
         element.flags = queue->queue_arr[queue->front]->flags;
         strcpy(element.buf, queue->queue_arr[queue->front]->buf);
@@ -56,18 +55,16 @@ void enqueue(Queue *queue, Message ele)
    else
    {
        if(isQueueEmpty(queue)) queue->front = 0;
-       printf("[queue] queue front: %d\n", queue->front);
+    //    printf("[queue] queue front: %d\n", queue->front);
        queue->rear = (queue->rear + 1) % SIZE;
-       printf("[queue] queue rear: %d\n", queue->rear);
-       queue->queue_arr[queue->rear]->sockfd = ele.sockfd;
-       printf("[queue] element sockfd: %d\n", queue->queue_arr[queue->rear]->sockfd);
+    //    printf("[queue] queue rear: %d\n", queue->rear);
        queue->queue_arr[queue->rear]->len = ele.len;
-       printf("[queue] element len: %d\n", queue->queue_arr[queue->rear]->len);
+    //    printf("[queue] element len: %d\n", queue->queue_arr[queue->rear]->len);
        queue->queue_arr[queue->rear]->flags = ele.flags;
-       printf("[queue] element flags: %d\n", queue->queue_arr[queue->rear]->flags);
+    //    printf("[queue] element flags: %d\n", queue->queue_arr[queue->rear]->flags);
        queue->queue_arr[queue->rear]->buf = (char *)malloc(ele.len);
        strcpy(queue->queue_arr[queue->rear]->buf, ele.buf);
-       printf("[queue] element buf: %s\n", queue->queue_arr[queue->rear]->buf + 4070);
+    //    printf("[queue] element buf: %s\n", queue->queue_arr[queue->rear]->buf);
    }
 }
 

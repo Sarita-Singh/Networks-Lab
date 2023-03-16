@@ -11,7 +11,6 @@
 #define ELE_SIZE 5000
 
 typedef struct _message {
-    int sockfd;
     char* buf;
     size_t len;
     int flags;
