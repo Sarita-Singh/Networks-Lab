@@ -53,5 +53,17 @@ Documentation for Networks lab Assignment-5 on message-oriented TCP
 
     - Checks the socket type. If normal socket, use send() directly. Else proceed as follows.
     - message variable of type Message initialized with given message to send.
-    - waits to lock the SendMessage queue for changes.
-    - if space is left in queue, enqueue the new message. Else sleep for 2 seconds then try again
+    - sleeps repeatedly till the Send_Message queue has space to enqueue. isQueueFull is called.
+    - waits to lock the Send_Message queue for changes. pthread_mutex_lock is called.
+    - enqueue the message in Send_Message queue.
+    - unlock the queue. pthread_mutex_unlock is called.
+
+
+-- What exactly happens when my_recv is called
+
+    - Checks the socket type. If normal socket, use recv() directly. Else proceed as follows.
+    - message variable of type Message declared to store the message dequeued.
+    - sleeps repeatedly till the Received_Message queue has any message. isQueueEmpty is called.
+    - waits to lock the Recv_Message queue for changes. pthread_mutex_lock is called.
+    - dequeue the message from Received_Message queue.
+    - unlock the queue. pthread_mutex_unlock is called.
