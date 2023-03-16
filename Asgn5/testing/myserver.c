@@ -12,6 +12,12 @@
 #include <string.h>
 #include <mysocket.h>
 
+#ifdef DEBUG
+ #define D if(1) 
+#else
+ #define D if(0) 
+#endif
+
 int main()
 {
     int server_socket;
@@ -28,7 +34,7 @@ int main()
     server_address.sin_addr.s_addr = INADDR_ANY;
     server_address.sin_port = htons(20000);
 
-    printf("[myserver] socket done\n");
+    D printf("[myserver] socket done\n");
 
     // bind the socket to our specified IP & port information in server_address
     error_check = my_bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
@@ -37,14 +43,14 @@ int main()
         exit(0);
     }
 
-    printf("[myserver] bind done\n");
+    D printf("[myserver] bind done\n");
 
     // listen for client sockets where 5 is the max no of allowed socket
     error_check = my_listen(server_socket, 5);
     if (error_check == -1)
         perror("Error in listening\n");
 
-    printf("[myserver] listen done\n");
+    D printf("[myserver] listen done\n");
     
     // buffer for message
     char buf[1500];
@@ -55,16 +61,16 @@ int main()
     while (1)
     {   
         clilen = sizeof(client_address);
-        printf("[myserver] waiting to accept call from client socket\n");
+        D printf("[myserver] waiting to accept call from client socket\n");
         if ((new_socket = my_accept(server_socket, (struct sockaddr *) &client_address, &clilen))< 0) {
 			perror("Error in Accept\n");
 			exit(0);
 		}
 
-        printf("[myserver] accept done %d\n", new_socket);
+        D printf("[myserver] accept done %d\n", new_socket);
 
         my_send(new_socket, buf, strlen(buf)+1, 0);
-        printf("[myserver] size send: %d\n", strlen(buf));
+        D printf("[myserver] size send: %d\n", strlen(buf));
 
 
         // we close the connection with the client

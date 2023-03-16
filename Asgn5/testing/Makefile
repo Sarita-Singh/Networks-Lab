@@ -1,6 +1,9 @@
 CC=gcc
 FLAGS = -Wall -I
 
+debug: myclient.c myserver.c
+	gcc myclient.c -D DEBUG -lmsocket -o client
+	gcc myserver.c -D DEBUG -lmsocket -o server
 custom: myclient.c myserver.c
 	gcc myclient.c -lmsocket -o client
 	gcc myserver.c -lmsocket -o server

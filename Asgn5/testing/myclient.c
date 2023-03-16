@@ -13,6 +13,12 @@
 #include <string.h>
 #include <mysocket.h>
 
+#ifdef DEBUG
+ #define D if(1) 
+#else
+ #define D if(0) 
+#endif
+
 int main(int argc, char **argv)
 {
     int connection_socket;
@@ -24,7 +30,7 @@ int main(int argc, char **argv)
         perror("Error in creating socket\n");
         exit(0);
     }
-    printf("[myclient] socket done %d\n", connection_socket);
+    D printf("[myclient] socket done %d\n", connection_socket);
     char address[16];
 
     if(argc >= 2) strcpy(address, argv[1]);
@@ -40,7 +46,7 @@ int main(int argc, char **argv)
        perror("\n Error in connecting to server \n");
        exit(0);
     } 
-    printf("[myclient] connect done\n");
+    D printf("[myclient] connect done\n");
     char buf_data[5000];
     memset(&buf_data, '\0', 5000);
     int x = 0;
@@ -50,7 +56,7 @@ int main(int argc, char **argv)
     {
         perror("\n Error in receiving \n");
     } 
-    printf("[myclient] recv done. size: %d\n", x);
+    D printf("[myclient] recv done. size: %d\n", x);
     //printf("\n%s\n",buf_data);
     printf("\nsize received: %d\n", strlen(buf_data));
 
