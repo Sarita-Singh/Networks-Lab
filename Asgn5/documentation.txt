@@ -1,0 +1,19 @@
+Documentation for Networks lab Assignment-5 on message-oriented TCP
+
+
+-- Data structures used
+
+// struct to store the message
+typedef struct _message {
+    int sockfd; // stores the socket where the message needs to be sent or is received from
+    char* buf; // pointer storing actual message
+    size_t len; // length of the message
+    int flags; // flag used in send and recv functions
+} Message;
+
+// struct for the queue
+typedef struct _queue {
+    Message* queue_arr[SIZE];
+    int front;
+    int rear;
+} Queue;

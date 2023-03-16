@@ -1,0 +1,2 @@
+# override parent dir .gitignore
+!documentation.txt
