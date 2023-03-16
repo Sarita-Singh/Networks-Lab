@@ -85,6 +85,11 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
         message.len = len;
         message.flags = flags;
 
+        while (isQueueFull(&Send_Message))
+        {
+            printf("[mysocket] %d queue is full. Going to sleep...\n", sockfd);
+            sleep(2);
+        }
         if (pthread_mutex_lock(&lock_send_msg))
         {
             perror("[mysocket] send queue lock failed\n");
@@ -94,18 +99,12 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
         {
             printf("[mysocket] %d main thread locked the send msg queue\n", sockfd);
         }
-        if (isQueueFull(&Send_Message))
-        {
-            printf("[mysocket] %d queue is full. Going to sleep...\n", sockfd);
-            sleep(2);
-        }
-        else
-        {
-            printf("[mysocket] %d Going to enqueue\n", sockfd);
-            enqueue(&Send_Message, message);
-            printf("[mysocket] %d message enqueued\n", sockfd);
-            printf("[mysocket] %d message of len %d has been enqueued\n", sockfd, message.len);
-        }
+
+        printf("[mysocket] %d Going to enqueue\n", sockfd);
+        enqueue(&Send_Message, message);
+        printf("[mysocket] %d message enqueued\n", sockfd);
+        printf("[mysocket] %d message of len %d has been enqueued\n", sockfd, message.len);
+
         if (pthread_mutex_unlock(&lock_send_msg))
         {
             perror("[mysocket] send queue unlock failed\n");
@@ -131,18 +130,34 @@ ssize_t my_recv(int sockfd, void *buf, size_t len, int flags)
         message.buf = (char *)malloc(ELE_SIZE);
         while (1)
         {
-            if (isQueueEmpty(&Received_Message))
+            while (isQueueEmpty(&Received_Message))
             {
                 printf("[mysocket] %d no message. going to sleep", sockfd);
                 sleep(2);
             }
+
+            if (pthread_mutex_lock(&lock_recv_msg))
+            {
+                perror("[mysocket] recv queue lock failed\n");
+                exit(1);
+            }
             else
             {
-                message = dequeue(&Received_Message);
-                strncpy(buf, message.buf, len);
-                printf("[mysocket] dequeued the message of len %d\n", message.len);
-                return message.len;
+                printf("[mysocket] %d receive thread locked the recv msg queue\n", sockfd);
             }
+            message = dequeue(&Received_Message);
+            if (pthread_mutex_unlock(&lock_recv_msg))
+            {
+                perror("[mysocket] recv queue unlock failed\n");
+                exit(1);
+            }
+            else
+            {
+                printf("[mysocket] %d receive thread unlocked the recv msg queue\n", sockfd);
+            }
+            strncpy(buf, message.buf, len);
+            printf("[mysocket] dequeued the message of len %d\n", message.len);
+            return message.len;
         }
     }
     else
@@ -175,7 +190,7 @@ void *send_msg(void *arg)
                 char buf[ELE_SIZE];
                 memset(buf, '\0', ELE_SIZE);
                 strcpy(buf, message.buf);
-                printf("[mysocket] %d buf: %s\n", newsockfd, message.buf+4970);
+                printf("[mysocket] %d buf: %s\n", newsockfd, message.buf + 4970);
                 printf("[mysocket] calling send chunks function\n");
                 send_chunks(newsockfd, message.buf);
                 printf("[mysocket] %d thread S sent the message over tcp\n", newsockfd);
