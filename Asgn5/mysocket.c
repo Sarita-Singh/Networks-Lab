@@ -103,7 +103,7 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
         printf("[mysocket] %d Going to enqueue\n", sockfd);
         enqueue(&Send_Message, message);
         printf("[mysocket] %d message enqueued\n", sockfd);
-        printf("[mysocket] %d message of len %d has been enqueued\n", sockfd, message.len);
+        printf("[mysocket] %d message of len %ld has been enqueued\n", sockfd, message.len);
 
         if (pthread_mutex_unlock(&lock_send_msg))
         {
@@ -156,9 +156,9 @@ ssize_t my_recv(int sockfd, void *buf, size_t len, int flags)
         {
             printf("[mysocket] %d receive thread unlocked the recv msg queue\n", sockfd);
         }
-        
+
         strncpy(buf, message.buf, len);
-        printf("[mysocket] dequeued the message of len %d\n", message.len);
+        printf("[mysocket] dequeued the message of len %ld\n", message.len);
         return message.len;
     }
     else

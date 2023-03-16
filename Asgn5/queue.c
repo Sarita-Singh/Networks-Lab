@@ -27,8 +27,11 @@ int isQueueFull(Queue* queue)
 Message dequeue(Queue* queue)
 {   
     if(isQueueEmpty(queue) == 1) {
-        Message null;
-        return null;
+        Message empty;
+        empty.buf = NULL;
+        empty.len = 0;
+        empty.flags = 0;
+        return empty;
     }
     else
     {
