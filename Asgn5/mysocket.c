@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 Queue Send_Message, Received_Message;
-int newsockfd, Type = 0, isClient = 0, isAccepted = 0, isConnected = 0;
+int newsockfd, mySocketType = !(SOCK_MyTCP), isClient = 0, isAccepted = 0, isConnected = 0;
 pthread_t S, R;
 pthread_mutex_t lock_send_msg, lock_recv_msg;
 pthread_cond_t S_cond, R_cond;
@@ -17,7 +17,7 @@ int my_socket(int domain, int type, int protocol)
 
     if (type == SOCK_MyTCP)
     {
-        Type = 1;
+        mySocketType = SOCK_MyTCP;
         initQueue(&Send_Message);
         initQueue(&Received_Message);
 
@@ -77,7 +77,7 @@ int my_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
 {
-    if (Type == 1)
+    if (mySocketType == SOCK_MyTCP)
     {
         Message message;
         message.buf = (char *)malloc(ELE_SIZE);
@@ -125,7 +125,7 @@ ssize_t my_send(int sockfd, const void *buf, size_t len, int flags)
 
 ssize_t my_recv(int sockfd, void *buf, size_t len, int flags)
 {
-    if (Type == 1)
+    if (mySocketType == SOCK_MyTCP)
     {
         Message message;
         message.buf = (char *)malloc(ELE_SIZE);
@@ -319,6 +319,5 @@ int my_close(int fd)
     isAccepted = 0;
     isConnected = 0;
     isClient = 0;
-    Type = 0;
     return close(fd);
 }

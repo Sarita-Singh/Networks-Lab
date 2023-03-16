@@ -1,19 +1,57 @@
 Documentation for Networks lab Assignment-5 on message-oriented TCP
 
 
+
+
 -- Data structures used
 
-// struct to store the message
-typedef struct _message {
-    int sockfd; // stores the socket where the message needs to be sent or is received from
-    char* buf; // pointer storing actual message
-    size_t len; // length of the message
-    int flags; // flag used in send and recv functions
-} Message;
+    // struct to store the message
+    typedef struct _message {
+        char* buf; // pointer storing actual message
+        size_t len; // length of the message
+        int flags; // flag used in send and recv functions
+    } Message;
 
-// struct for the queue
-typedef struct _queue {
-    Message* queue_arr[SIZE];
-    int front;
-    int rear;
-} Queue;
+    // struct for the queue
+    typedef struct _queue {
+        Message* queue_arr[SIZE];
+        int front;
+        int rear;
+    } Queue;
+
+
+-- Functions as described in the Assignment
+
+    int my_socket(int domain, int type, int protocol);
+    int my_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+    int my_listen(int sockfd, int backlog);
+    int my_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+    int my_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+    ssize_t my_send(int sockfd, const void *buf, size_t len, int flags);
+    ssize_t my_recv(int sockfd, void *buf, size_t len, int flags);
+    int my_close(int fd);
+
+
+-- Additional functions
+
+    void *send_msg(void *arg);
+        - function for thread to send msg waiting in Send_Message queue
+    
+    void *recv_msg(void *arg);
+        - function for thread to wait on recv call and put the msg into Received_Message
+    
+    int receive_chunks(int sockfd, char *result, int size);
+        - function to receive msg using buffer of maximum capacity 1000
+
+    void send_chunks(int new_socket, char *result);
+        - function to send msg using buffer of maximum capacity 1000
+
+
+
+
+-- What exactly happens when my_send is called
+
+    - Checks the socket type. If normal socket, use send() directly. Else proceed as follows.
+    - message variable of type Message initialized with given message to send.
+    - waits to lock the SendMessage queue for changes.
+    - if space is left in queue, enqueue the new message. Else sleep for 2 seconds then try again
