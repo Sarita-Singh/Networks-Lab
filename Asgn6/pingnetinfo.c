@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -18,9 +20,18 @@ void printHelp() {
 int main(int argc, char** argv) {
 
     // init variables
-    struct hostent* hostEntry;
+    char srcHostbuffer[256];
+    struct hostent *hostEntry;
     int n, T;
-    char *IPbuffer;
+    char *temp, *destIP, *srcIP;
+
+    gethostname(srcHostbuffer, sizeof(srcHostbuffer));
+    hostEntry = gethostbyname(srcHostbuffer);
+
+    // get source IP from hostname
+    temp = inet_ntoa(*((struct in_addr*)hostEntry->h_addr_list[0]));
+    srcIP = (char *)malloc(strlen(temp)+1);
+    strcpy(srcIP, temp);
 
     // processing arguments
     if(argc < 4) {
@@ -36,11 +47,14 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // get IP from hostname
-    IPbuffer = inet_ntoa(*((struct in_addr*)hostEntry->h_addr_list[0]));
+    // get destination IP from hostname
+    temp = inet_ntoa(*((struct in_addr*)hostEntry->h_addr_list[0]));
+    destIP = (char *)malloc(strlen(temp)+1);
+    strcpy(destIP, temp);
 
     // print init information
-    printf("IP Address: %s\n", IPbuffer);
+    printf("source IP Address: %s\n", srcIP);
+    printf("destination IP Address: %s\n", destIP);
     printf("Number of probes: %d\n", n);
     printf("Time difference between each probe (in seconds): %d\n", T);
 
