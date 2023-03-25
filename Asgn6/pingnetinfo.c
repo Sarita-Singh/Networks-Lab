@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
     struct sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     inet_aton(destIP, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(7); // 7 is used for echo
+    serverAddress.sin_port = htons(80); // 7 is used for echo
 
     // setup ip headers. Copying from internet. Change later.
     char sendBuf[4096] = {0};
@@ -114,9 +114,11 @@ int main(int argc, char** argv) {
 
     while(1) {
         ipHeader->ip_ttl = ttl;
+        ipHeader->ip_sum = 0;
         ipHeader->ip_sum = compute_checksum((unsigned short *)ipHeader, 9);
 
         icmpHeader->un.echo.sequence = ttl;
+        icmpHeader->checksum = 0;
         icmpHeader->checksum = compute_checksum((unsigned short *)icmpHeader, 4);
 
         sendto(sockfd, sendBuf, sizeof(struct ip) + sizeof(struct icmphdr), 0, &serverAddress, sizeof(serverAddress));
