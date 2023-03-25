@@ -20,23 +20,13 @@ void printHelp() {
 }
 
 // copied from internet. need to change later.
-static unsigned short compute_checksum(unsigned short *addr, unsigned int count) {
-  register unsigned long sum = 0;
-  while (count > 1) {
-    sum += * addr++;
-    count -= 2;
-  }
-  //if any bytes left, pad the bytes and add
-  if(count > 0) {
-    sum += ((*addr)&htons(0xFF00));
-  }
-  //Fold sum to 16 bits: add carrier to result
-  while (sum>>16) {
-      sum = (sum & 0xffff) + (sum >> 16);
-  }
-  //one's complement
-  sum = ~sum;
-  return ((unsigned short)sum);
+static unsigned short compute_checksum(unsigned short *addr, unsigned int nwords) {
+  unsigned long sum;
+  for (sum = 0; nwords > 0; nwords--)
+    sum += *addr++;
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum += (sum >> 16);
+  return ~sum;
 }
 
 int main(int argc, char** argv) {
@@ -100,8 +90,8 @@ int main(int argc, char** argv) {
     inet_aton(destIP, &serverAddress.sin_addr);
     serverAddress.sin_port = htons(7); // 7 is used for echo
 
-    // setup ip header. Copying from internet. Change later.
-    char sendBuf[4096];
+    // setup ip headers. Copying from internet. Change later.
+    char sendBuf[4096] = {0};
     struct ip *ipHeader = (struct ip *)sendBuf;
     ipHeader->ip_v = 4;
     ipHeader->ip_hl = 5;
@@ -111,14 +101,41 @@ int main(int argc, char** argv) {
     ipHeader->ip_off = 0;
     ipHeader->ip_p = IPPROTO_ICMP;
     inet_aton(srcIP, &(ipHeader->ip_src));
-    net_aton(destIP, &(ipHeader->ip_dst));
+    inet_aton(destIP, &(ipHeader->ip_dst));
+
+    // setup icmp headers
+    struct icmphdr *icmpHeader = (struct icmphdr *)(sendBuf + 20);
+    icmpHeader->type = ICMP_ECHO;
+    icmpHeader->code = 0;
+    icmpHeader->un.echo.id = 0;
 
     // init time-to-live
     int ttl = 1;
 
     while(1) {
         ipHeader->ip_ttl = ttl;
-        ipHeader->ip_sum = compute_checksum((unsigned short *)ipHeader, (ipHeader->ip_hl << 2));
+        ipHeader->ip_sum = compute_checksum((unsigned short *)ipHeader, 9);
+
+        icmpHeader->un.echo.sequence = ttl;
+        icmpHeader->checksum = compute_checksum((unsigned short *)icmpHeader, 4);
+
+        sendto(sockfd, sendBuf, sizeof(struct ip) + sizeof(struct icmphdr), 0, &serverAddress, sizeof(serverAddress));
+
+        char recvBuf[4096] = {0};
+        struct sockaddr_in clientAddress;
+        socklen_t len = sizeof(struct sockaddr_in);
+
+        recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, &clientAddress, &len);
+        struct icmphdr *icmpRecvHeader = (struct icmphdr *) (recvBuf + 20);
+
+        if(icmpRecvHeader->type != 0) {
+            printf("TTL: %d \t Address: %s\n", ttl, inet_ntoa(clientAddress.sin_addr));
+        }
+        else {
+            printf("Destination reached: %s \t TTL: %d\n", inet_ntoa(clientAddress.sin_addr), ttl);
+            break;
+        }
+        ttl++;
     }
 
     return 0;
