@@ -202,7 +202,7 @@ int main(int argc, char** argv) {
         }
 
         // we calculate bandwidth as ((no of packets sent *  Length of packet in bits) / time ) 
-        float bw = (n*(20*8 + 8*8) + n*(20*8 + 8*8 + strlen(payload) + 1))/totalTime; 
+        float bw = (n*(20 + 8) + n*(20 + 8 + strlen(payload) + 1))*8/totalTime; 
         printf("Bandwidth: %f bits/sec\n", bw);
         if(reached) break;
 
