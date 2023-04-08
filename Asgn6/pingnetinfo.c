@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <sys/poll.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include<netinet/ip.h>
 #include<netinet/ip_icmp.h>
@@ -29,6 +31,16 @@ static unsigned short compute_checksum(unsigned short *addr, unsigned int nwords
   return ~sum;
 }
 
+void print_header(char *recvbuffer) {
+    struct icmphdr *recv_icmphdr = (struct icmphdr *)(recvbuffer + 20);
+
+    printf("ICMP type: %d\n", recv_icmphdr->type);
+    printf("ICMP code: %d\n", recv_icmphdr->code);
+    printf("ICMP echo id: %d\n", recv_icmphdr->un.echo.id);
+    printf("ICMP echo sequence: %d\n", recv_icmphdr->un.echo.sequence);
+    printf("ICMP gateway address: %d\n", recv_icmphdr->un.gateway);
+}
+
 int main(int argc, char** argv) {
 
     // init variables
@@ -36,7 +48,7 @@ int main(int argc, char** argv) {
     struct hostent *hostEntry;
     int n, T;
     char *temp, *destIP, *srcIP;
-
+    printf("srchost buf: %s\n", srcHostbuffer);
     gethostname(srcHostbuffer, sizeof(srcHostbuffer));
     hostEntry = gethostbyname(srcHostbuffer);
 
@@ -88,20 +100,20 @@ int main(int argc, char** argv) {
     struct sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     inet_aton(destIP, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(80); // 7 is used for echo
+    serverAddress.sin_port = htons(36969); // 7 is used for echo
 
     // setup ip headers. Copying from internet. Change later.
     char sendBuf[4096] = {0};
-    struct ip *ipHeader = (struct ip *)sendBuf;
-    ipHeader->ip_v = 4;
-    ipHeader->ip_hl = 5;
-    ipHeader->ip_tos = 0;
-    ipHeader->ip_len = 20 + 8;
-    ipHeader->ip_id = 10000;
-    ipHeader->ip_off = 0;
-    ipHeader->ip_p = IPPROTO_ICMP;
-    inet_aton(srcIP, &(ipHeader->ip_src));
-    inet_aton(destIP, &(ipHeader->ip_dst));
+    struct iphdr *ipHeader = (struct iphdr *)sendBuf;
+    ipHeader->version = 4;
+    ipHeader->ihl = 5;
+    ipHeader->tos = 0;
+    ipHeader->tot_len = 20 + 8;
+    ipHeader->id = 10000;
+    ipHeader->frag_off = 0;
+    ipHeader->protocol = IPPROTO_ICMP;
+    inet_aton(srcIP, &(ipHeader->saddr));
+    inet_aton(destIP, &(ipHeader->daddr));
 
     // setup icmp headers
     struct icmphdr *icmpHeader = (struct icmphdr *)(sendBuf + 20);
@@ -111,32 +123,56 @@ int main(int argc, char** argv) {
 
     // init time-to-live
     int ttl = 1;
+    struct timeval t1,t2;
+    struct pollfd fds[1];
+    fds[0].fd = sockfd;
+    fds[0].events = POLLIN;
 
-    while(1) {
-        ipHeader->ip_ttl = ttl;
-        ipHeader->ip_sum = 0;
-        ipHeader->ip_sum = compute_checksum((unsigned short *)ipHeader, 9);
+    while(ttl <= 16) {
+        ipHeader->ttl = ttl;
+        ipHeader->check = 0;
+        ipHeader->check= compute_checksum((unsigned short *)ipHeader, 9);
 
         icmpHeader->un.echo.sequence = ttl;
         icmpHeader->checksum = 0;
         icmpHeader->checksum = compute_checksum((unsigned short *)icmpHeader, 4);
 
-        sendto(sockfd, sendBuf, sizeof(struct ip) + sizeof(struct icmphdr), 0, &serverAddress, sizeof(serverAddress));
+        printf("\nSending this ICMP packet.\n");
+        print_header(sendBuf);
 
         char recvBuf[4096] = {0};
         struct sockaddr_in clientAddress;
         socklen_t len = sizeof(struct sockaddr_in);
 
-        recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, &clientAddress, &len);
-        struct icmphdr *icmpRecvHeader = (struct icmphdr *) (recvBuf + 20);
+        sendto(sockfd, sendBuf, sizeof(struct iphdr) + sizeof(struct icmphdr), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+        gettimeofday(&t1, NULL);
 
-        if(icmpRecvHeader->type != 0) {
-            printf("TTL: %d \t Address: %s\n", ttl, inet_ntoa(clientAddress.sin_addr));
+        int ret = poll(fds, 1, 2000);
+
+        if(ret > 0) {
+            recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&clientAddress, &len);
+            gettimeofday(&t2, NULL);
+            struct icmphdr *icmpRecvHeader = (struct icmphdr *) (recvBuf + 20);
+
+            printf("\nReceiving this ICMP packet.\n");
+            print_header(recvBuf);
+
+            if(icmpRecvHeader->type == 11) {
+                printf("TTL: %d \t Address: %s\t %fms\n", ttl, inet_ntoa(clientAddress.sin_addr), (t2.tv_usec-t1.tv_usec)/1000.0);
+            }
+            else if(icmpRecvHeader->type == 0) {
+                printf("Destination reached: %s \t TTL: %d\t %fms\n", inet_ntoa(clientAddress.sin_addr), ttl,  (t2.tv_usec-t1.tv_usec)/1000.0);
+                break;
+            }
+        }
+        else if (ret == 0) {
+            // time exceeded
+            printf("Time exceeded. No icmp packet received.\n");
         }
         else {
-            printf("Destination reached: %s \t TTL: %d\n", inet_ntoa(clientAddress.sin_addr), ttl);
-            break;
+            perror("\nError in poll\n");
         }
+
         ttl++;
     }
 
