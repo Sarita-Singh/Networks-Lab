@@ -124,7 +124,6 @@ int main(int argc, char** argv) {
     struct icmphdr *icmpHeader = (struct icmphdr *)(sendBuf + 20);
     icmpHeader->type = ICMP_ECHO;
     icmpHeader->code = 0;
-    icmpHeader->un.echo.id = 0;
 
     int payloadLength = 0; // this actually decides whether the payload is sent or not
     char payload[10] = "Hello";
@@ -140,11 +139,6 @@ int main(int argc, char** argv) {
     int reached = 0;
 
     while(ttl <= 16) {
-        ipHeader->ttl = ttl;
-        ipHeader->check = 0;
-
-        icmpHeader->un.echo.sequence = ttl;
-        icmpHeader->checksum = 0;
 
         float totalTime = 0, tripTime=0;
 
@@ -155,9 +149,14 @@ int main(int argc, char** argv) {
             if(i > n) payloadLength = strlen(payload) + 1;
             else payloadLength = 0;
 
+            ipHeader->ttl = ttl;
             ipHeader->tot_len = 20 + 8 + payloadLength;
-            
+            ipHeader->check = 0;
             ipHeader->check= checksum((unsigned short *)ipHeader, 20);
+
+            icmpHeader->un.echo.sequence = ttl;
+            icmpHeader->un.echo.id = ttl*10 + i;
+            icmpHeader->checksum = 0;
             icmpHeader->checksum = checksum((unsigned short *)(sendBuf + 20), 8 + payloadLength);
 
             printf("\nFor TTL: %d\tSending ICMP packet no.:%d\n", ttl, i);
@@ -170,7 +169,7 @@ int main(int argc, char** argv) {
             sendto(sockfd, sendBuf, sizeof(struct iphdr) + sizeof(struct icmphdr) + payloadLength, 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
             gettimeofday(&t1, NULL);
 
-            int ret = poll(fds, 1, 3000);
+            int ret = poll(fds, 1, 2000);
 
             if(ret > 0) {
                 recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&clientAddress, &len);
