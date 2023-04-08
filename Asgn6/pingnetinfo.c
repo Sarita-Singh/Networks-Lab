@@ -21,14 +21,20 @@ void printHelp() {
     printf(" -> T: The time difference between any two probes (seconds).\n");
 }
 
-// copied from internet. need to change later.
-static unsigned short compute_checksum(unsigned short *addr, unsigned int nwords) {
-  unsigned long sum;
-  for (sum = 0; nwords > 0; nwords--)
-    sum += *addr++;
-  sum = (sum >> 16) + (sum & 0xffff);
-  sum += (sum >> 16);
-  return ~sum;
+unsigned short checksum(unsigned short *addr, int len) {
+    unsigned int sum = 0;
+    unsigned short result;
+
+    for (sum = 0; len > 1; len -= 2) {
+        sum += *addr++;
+    }
+    if (len == 1) {
+        sum += *(unsigned char *)addr;
+    }
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+    result = ~sum;
+    return result;
 }
 
 void print_header(char *recvbuffer) {
@@ -108,7 +114,6 @@ int main(int argc, char** argv) {
     ipHeader->version = 4;
     ipHeader->ihl = 5;
     ipHeader->tos = 0;
-    ipHeader->tot_len = 20 + 8;
     ipHeader->id = 10000;
     ipHeader->frag_off = 0;
     ipHeader->protocol = IPPROTO_ICMP;
@@ -121,6 +126,10 @@ int main(int argc, char** argv) {
     icmpHeader->code = 0;
     icmpHeader->un.echo.id = 0;
 
+    int payloadLength = 0; // this actually decides whether the payload is sent or not
+    char payload[10] = "Hello";
+    strcpy(sendBuf + 28, payload);
+
     // init time-to-live
     int ttl = 1;
     struct timeval t1,t2;
@@ -128,50 +137,75 @@ int main(int argc, char** argv) {
     fds[0].fd = sockfd;
     fds[0].events = POLLIN;
 
+    int reached = 0;
+
     while(ttl <= 16) {
         ipHeader->ttl = ttl;
         ipHeader->check = 0;
-        ipHeader->check= compute_checksum((unsigned short *)ipHeader, 9);
 
         icmpHeader->un.echo.sequence = ttl;
         icmpHeader->checksum = 0;
-        icmpHeader->checksum = compute_checksum((unsigned short *)icmpHeader, 4);
 
-        printf("\nSending this ICMP packet.\n");
-        print_header(sendBuf);
+        float totalTime = 0, tripTime=0;
 
-        char recvBuf[4096] = {0};
-        struct sockaddr_in clientAddress;
-        socklen_t len = sizeof(struct sockaddr_in);
+        for(int i = 1; i <= 2*n; i++) {
 
-        sendto(sockfd, sendBuf, sizeof(struct iphdr) + sizeof(struct icmphdr), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
-        gettimeofday(&t1, NULL);
+            sleep(T);
 
-        int ret = poll(fds, 1, 2000);
+            if(i > n) payloadLength = strlen(payload) + 1;
+            else payloadLength = 0;
 
-        if(ret > 0) {
-            recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&clientAddress, &len);
-            gettimeofday(&t2, NULL);
-            struct icmphdr *icmpRecvHeader = (struct icmphdr *) (recvBuf + 20);
+            ipHeader->tot_len = 20 + 8 + payloadLength;
+            
+            ipHeader->check= checksum((unsigned short *)ipHeader, 20);
+            icmpHeader->checksum = checksum((unsigned short *)(sendBuf + 20), 8 + payloadLength);
 
-            printf("\nReceiving this ICMP packet.\n");
-            print_header(recvBuf);
+            printf("\nFor TTL: %d\tSending ICMP packet no.:%d\n", ttl, i);
+            print_header(sendBuf);
 
-            if(icmpRecvHeader->type == 11) {
-                printf("TTL: %d \t Address: %s\t %fms\n", ttl, inet_ntoa(clientAddress.sin_addr), (t2.tv_usec-t1.tv_usec)/1000.0);
+            char recvBuf[4096] = {0};
+            struct sockaddr_in clientAddress;
+            socklen_t len = sizeof(struct sockaddr_in);
+
+            sendto(sockfd, sendBuf, sizeof(struct iphdr) + sizeof(struct icmphdr) + payloadLength, 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+            gettimeofday(&t1, NULL);
+
+            int ret = poll(fds, 1, 3000);
+
+            if(ret > 0) {
+                recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&clientAddress, &len);
+                gettimeofday(&t2, NULL);
+
+                tripTime = (t2.tv_sec-t1.tv_sec)*1000.0 + (t2.tv_usec-t1.tv_usec)/1000.0;
+
+                struct icmphdr *icmpRecvHeader = (struct icmphdr *) (recvBuf + 20);
+
+                printf("\nReceived an ICMP packet.\n");
+                print_header(recvBuf);
+
+                if(icmpRecvHeader->type == 11) {
+                    printf("\nTTL: %d \t Address: %s\t %fms\n", ttl, inet_ntoa(clientAddress.sin_addr), tripTime);
+                }
+                else if(icmpRecvHeader->type == 0) {
+                    printf("\nDestination reached: %s \t TTL: %d\t %fms\n", inet_ntoa(clientAddress.sin_addr), ttl,  (t2.tv_usec-t1.tv_usec)/1000.0);
+                    reached = 1;
+                }
+
+                totalTime += tripTime;
             }
-            else if(icmpRecvHeader->type == 0) {
-                printf("Destination reached: %s \t TTL: %d\t %fms\n", inet_ntoa(clientAddress.sin_addr), ttl,  (t2.tv_usec-t1.tv_usec)/1000.0);
-                break;
+            else if (ret == 0) {
+                // time exceeded
+                printf("\nTime exceeded. No icmp packet received.\n");
+            }
+            else {
+                perror("\nError in poll\n");
             }
         }
-        else if (ret == 0) {
-            // time exceeded
-            printf("Time exceeded. No icmp packet received.\n");
-        }
-        else {
-            perror("\nError in poll\n");
-        }
+
+        // we calculate bandwidth as ((no of packets sent *  Length of packet in bits) / time ) 
+        float bw = (n*(20*8 + 8*8) + n*(20*8 + 8*8 + strlen(payload) + 1))/totalTime; 
+        printf("Bandwidth: %f bits/sec\n", bw);
+        if(reached) break;
 
         ttl++;
     }
