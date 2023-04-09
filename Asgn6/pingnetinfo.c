@@ -106,9 +106,9 @@ int main(int argc, char** argv) {
     struct sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     inet_aton(destIP, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(36969); // 7 is used for echo
+    serverAddress.sin_port = htons(36969); 
 
-    // setup ip headers. Copying from internet. Change later.
+    // setup ip headers
     char sendBuf[4096] = {0};
     struct iphdr *ipHeader = (struct iphdr *)sendBuf;
     ipHeader->version = 4;
@@ -142,11 +142,12 @@ int main(int argc, char** argv) {
 
         float totalTime = 0, tripTime=0;
 
-        for(int i = 1; i <= 2*n; i++) {
+        // sending 5 packets without payload to finalize each intermediate node and n packets with payload
+        for(int i = 1; i <= 5 + n; i++) {
 
             sleep(T);
 
-            if(i > n) payloadLength = strlen(payload) + 1;
+            if(i > 5) payloadLength = strlen(payload) + 1;
             else payloadLength = 0;
 
             ipHeader->ttl = ttl;
@@ -157,7 +158,7 @@ int main(int argc, char** argv) {
             icmpHeader->un.echo.sequence = ttl;
             icmpHeader->un.echo.id = ttl*10 + i;
             icmpHeader->checksum = 0;
-            icmpHeader->checksum = checksum((unsigned short *)(sendBuf + 20), 8 + payloadLength);
+            icmpHeader->checksum = checksum((unsigned short *)(sendBuf + 20), 8 + payloadLength);  // calculating the checksum
 
             printf("\nFor TTL: %d\tSending ICMP packet no.:%d\n", ttl, i);
             print_header(sendBuf);
@@ -169,7 +170,7 @@ int main(int argc, char** argv) {
             sendto(sockfd, sendBuf, sizeof(struct iphdr) + sizeof(struct icmphdr) + payloadLength, 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
             gettimeofday(&t1, NULL);
 
-            int ret = poll(fds, 1, 2000);
+            int ret = poll(fds, 1, 2000);   // poll with timeout of 2 sec
 
             if(ret > 0) {
                 recvfrom(sockfd, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&clientAddress, &len);
@@ -202,7 +203,7 @@ int main(int argc, char** argv) {
         }
 
         // we calculate bandwidth as ((no of packets sent *  Length of packet in bits) / time ) 
-        float bw = (n*(20 + 8) + n*(20 + 8 + strlen(payload) + 1))*8/totalTime; 
+        float bw = (5*(20 + 8) + n*(20 + 8 + strlen(payload) + 1))*8/totalTime; 
         printf("Bandwidth: %f bits/sec\n", bw);
         if(reached) break;
 
